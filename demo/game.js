@@ -48,29 +48,30 @@ class Player extends Entity {
 }
 
 let GameObj = {
-  init: function() {
-    raycaster.init();
-  },
   preload: function() {
     player = new Player(game,50,50);
     raycaster.addGameObject(player);
-    raycaster.addGameObject(new Wall(300,200,40,200,100,{color:"rgba(50,50,50,.8)"}));
-    raycaster.addGameObject(new Wall(200,400,40,200,100,{color:"rgba(0,255,0,1)"}));
+    raycaster.addGameObject(new Wall(300,200,40,200,100,{color:"rgba(50,50,50,1)"}));
+    raycaster.addGameObject(new Wall(200,400,40,200,100,{color:"rgba(0,255,0,.5)"}));
 
+  },
+  init: function() {
+    raycaster.init();
   },
   create: function() {
     raycaster.start();
   },
   update: function() {
+    player.handleInput();
     raycaster.update();
   },
   render: function() {
-    raycaster.renderDebug();
     player.renderGround();
+    player.renderSky();
     player.renderPerspective();
   }
 };
 
-let raycaster = new Raycaster(600,500,'',200,true);
+let raycaster = new Raycaster(600,500,'',true);
 let player;
 const game = raycaster.createGame(GameObj);
