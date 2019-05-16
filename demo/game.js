@@ -1,5 +1,5 @@
 class Player extends Entity {
-  constructor(game,x,y) {
+  constructor(x,y) {
     let [width,height] = [25,25];
     let angle = 90;
     super(
@@ -7,12 +7,12 @@ class Player extends Entity {
       y,
       width,
       height,
+      true,
       {
         fov:100,
         speed:200,
         lookSpeed:200
       },
-      game,
       undefined,
       angle
     );
@@ -49,7 +49,7 @@ class Player extends Entity {
 
 let GameObj = {
   preload: function() {
-    player = new Player(game,50,50);
+    player = new Player(50,50);
     raycaster.addGameObject(player);
     raycaster.addGameObject(new Wall(300,200,40,200,100,{color:"rgba(50,50,50,1)"}));
     raycaster.addGameObject(new Wall(200,400,40,200,100,{color:"rgba(0,255,0,.5)"}));
@@ -68,10 +68,10 @@ let GameObj = {
   render: function() {
     player.renderGround();
     player.renderSky();
-    player.renderPerspective();
+    player.renderPerspective(game);
   }
 };
 
-let raycaster = new Raycaster(600,500,'',true);
+let raycaster = new Raycaster(600,500,'',undefined,true);
 let player;
 const game = raycaster.createGame(GameObj);

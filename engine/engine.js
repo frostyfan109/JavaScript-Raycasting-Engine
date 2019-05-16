@@ -24,7 +24,6 @@ class PlanarObject extends Phaser.Line {
     this.h = height;
     this.options = {
       color:"rgba(255,255,255,1)",
-      hasCollision:true,
       render:true
     };
     for (let key in options) {
@@ -75,18 +74,21 @@ class Entity extends PlanarObject {
   @param {int} y - Initial y=axis coordinate
   @param {int} width - Width of the Entity
   @param {int} height - Height of the Entity
-  @param {Object} data - {
-    @param {int} fov - Fov in degrees of Entity (<=0 if the Entity does not cast rays)
-    @param {int} speed - Speed of Entity in pixels per (second squared)
-    @param {int} lookSpeed - Speed at which Entity turns in degrees/radians per second squared (varies depending on version of Phaser)
-  }
-  @param {int, optional} angle - Initial angle that the Entity faces
+  @param {Boolean} hasCamera - When false, the Entity will cast out 0 rays
+  @param {Object} data - Data regarding the behavior of the Entity
+  @param {int} data.fov - Fov in degrees of Entity (<=0 if the Entity does not cast rays)
+  @param {int} data.speed - Speed of Entity in pixels per (second squared)
+  @param {int} data.lookSpeed - Speed at which Entity turns in degrees/radians per second squared (varies depending on version of Phaser)
+  @param {int} [data.angle=0] - Initial angle that the Entity faces
+  @param {Object} options - Additional PLanarObject options
+  @param {String} options.color - CSS color string of the Entity given a texture is not present
+  @param {Boolean} options.render - Boolean governing whether or not the object will be rendered
   */
-  constructor(x,y,width,height,data,game=Raycaster.GAME,options={},angle=0) {
+  constructor(x,y,width,height,hasCamera,data,options={},angle=0) {
     super(x,y,x+width,y,height,options);
     // this.rotate(angle,true);
-    this.game = game;
 
+    this.hasCamera = hasCamera;
     this.data = data;
     this.fov = data.fov;
     this.speed = data.speed;
@@ -107,6 +109,7 @@ class Entity extends PlanarObject {
   }
 
   castRays() {
+    if (!this.hasCamera) return;
     this.rays.length = 0; //empty ray array
     // for (let i=0;i<Raycaster.TOTAL_RAYS;i++) {
     //   let fovAngle = ((i/Raycaster.TOTAL_RAYS)*this.fov)-(this.fov/2);
@@ -115,10 +118,10 @@ class Entity extends PlanarObject {
     //   this.rays.push(ray);
     // }
 
-    //half_world_width / tan(half_of_fov_in_rad) = distToProjSurface
-    let distToProjSurface = (this.game.world.width/2) / Math.tan((this.fov/2).toRad());
-    for (let x=0;x<this.game.world.width;x++) {
-      let angle = Math.atan((x-(this.game.world.width/2)) / distToProjSurface);
+    //distToProjSurface = total_rays/2 / tan(half_of_fov_in_rad)
+    let distToProjSurface = (Raycaster.TOTAL_RAYS/2) / Math.tan((this.fov/2).toRad());
+    for (let x=0;x<Raycaster.TOTAL_RAYS;x++) {
+      let angle = Math.atan((x-(Raycaster.TOTAL_RAYS/2)) / distToProjSurface);
       angle += (this.sprite.angle).toRad();
       // angle += x/this.totalRays;
       let ray = new Ray(this.sprite.body.center.x,this.sprite.body.center.y,angle,Entity.RENDER_DISTANCE);
@@ -163,7 +166,7 @@ class Entity extends PlanarObject {
     game.debug.geom(new Phaser.Rectangle(0,game.world.height/2,game.world.width,game.world.height/2),color);
   }
 
-  renderPerspective() {
+  renderPerspective(game) {
     let points = [];
     this.rays.forEach((ray,i) => {
       ray.collisions.slice().sort((c1,c2) => Math.sqrt((c2.p.x-ray.origin.x)**2 + (c2.p.y-ray.origin.y)**2) - Math.sqrt((c1.p.x-ray.origin.x)**2 + (c1.p.y-ray.origin.y)**2)).forEach((col,n) => {
@@ -172,7 +175,7 @@ class Entity extends PlanarObject {
 
 
         let rayLen = this.rays.length;
-        let width = Math.ceil(this.game.world.width/rayLen);
+        let width = Math.ceil(game.world.width/rayLen);
         // console.log(width);
         let dx = collision.x-ray.origin.x;
         let dy = collision.y-ray.origin.y;
@@ -180,28 +183,28 @@ class Entity extends PlanarObject {
         let projHeight = distance * Math.cos((Math.atan2(dy,dx)-this.sprite.angle.toRad()));
         let actualHeight = collisionObject.h;
 
-        let y = (this.game.world.height/2) - (projHeight/2);
+        let y = (game.world.height/2) - (projHeight/2);
 
         let color = collisionObject.options.color;
         let column = new Phaser.Rectangle(
-          Math.floor((i)*(this.game.world.width/rayLen)),
-          (this.game.world.height/2)-((this.game.world.height / (projHeight/this.fov)) / 2),
+          Math.floor((i)*(game.world.width/rayLen)),
+          (game.world.height/2)-((game.world.height / (projHeight/this.fov)) / 2),
           width,
-          this.game.world.height/(projHeight/this.fov)
+          game.world.height/(projHeight/this.fov)
         );
         points.push(new Phaser.Line(column.x,column.y,column.x+column.width,column.y+column.height));
-        this.game.debug.geom(column,color);
+        game.debug.geom(column,color);
       });
     });
     if (Raycaster.DEBUG_MODE) {
       if (points.length > 0) {
-        // this.game.debug.geom(new Phaser.Line(points[0].start.x,points[0].start.y,points[points.length-1].end.x,points[points.length-1].start.y),"#00ff00");
-        // this.game.debug.geom(new Phaser.Line(points[0].start.x,points[0].end.y,points[points.length-1].end.x,points[points.length-1].end.y),"#00ff00");
+        // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].start.y,points[points.length-1].end.x,points[points.length-1].start.y),"#00ff00");
+        // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].end.y,points[points.length-1].end.x,points[points.length-1].end.y),"#00ff00");
       }
       points.forEach((point,i) => {
       //   if (i === 0) return;
-      //   this.game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].start.y,point.start.x,point.start.y),"#ffffff");
-      //   this.game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].end.y,point.start.x,point.end.y),"#000000");
+      //   game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].start.y,point.start.x,point.start.y),"#ffffff");
+      //   game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].end.y,point.start.x,point.end.y),"#000000");
       });
     }
   }
@@ -210,9 +213,19 @@ class Entity extends PlanarObject {
 Entity.RENDER_DISTANCE = 800;
 
 class Raycaster {
-  constructor(width,height,parent,debug=false) {
-    //if a game instance is not passed each Entity will be expected to be passed a game instance on creation (allowing for split screen)
+  /*
+  Main class used to perform update logic and handle the game state
+
+  @param {int} width - Width in pixels of game instances
+  @param {int} height - Height in pixels of game instances
+  @param {string | HTMlElement} parent - Parent element that game instances will be created within
+  @param {int} [totalRays=null] - Total amount of rays that are cast out by an Entity
+    Recommended to be left as null as it uses it will use the width of the game instances
+    Can be reduced or increased to increase or reduce fps respectively
+  */
+  constructor(width,height,parent,totalRays=null,debug=false) {
     Raycaster.DEBUG_MODE = debug;
+    Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
 
     this.instanceWidth = width;
     this.instanceHeight = height;
@@ -223,7 +236,7 @@ class Raycaster {
   }
 
   init() {
-    Raycaster.DEBUG = new Phaser.Game(this.instanceWidth, this.instanceHeight, parent, Phaser.CANVAS);
+    Raycaster.DEBUG = new Phaser.Game(this.instanceWidth, this.instanceHeight, this.instanceParent, Phaser.CANVAS);
     if (!Raycaster.DEBUG_MODE) {
       Raycaster.DEBUG.canvas.style.display = "none";
     }
@@ -245,7 +258,7 @@ class Raycaster {
         this.renderDebug();
       }
     }
-    let instance = new Phaser.Game(this.instanceWidth,this.instanceHeight,Phaser.CANVAS, this.instanceParent, g);
+    let instance = new Phaser.Game(this.instanceWidth,this.instanceHeight,Phaser.CANVAS,this.instanceParent,g);
     this.gameInstances.push(instance);
     return instance;
   }
@@ -333,10 +346,9 @@ class Raycaster {
   }
 }
 
-Raycaster.GAME = null;
 Raycaster.DEBUG = null;
+Raycaster.TOTAL_RAYS = null;
 Raycaster.DEBUG_MODE = false;
-Raycaster.DISTANCE_TO_PROJ_SURFACE = 200;
 
 Phaser.Plugin.Raycaster = Raycaster;
 // module.exports = RayCaster;
