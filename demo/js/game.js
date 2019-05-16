@@ -60,6 +60,7 @@ let GameObj = {
   },
   create: function() {
     raycaster.start();
+    // raycaster.loadImage('foo','bar');
   },
   update: function() {
     player.handleInput();

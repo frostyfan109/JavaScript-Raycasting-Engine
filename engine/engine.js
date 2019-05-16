@@ -8,6 +8,16 @@ Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 }
 
+function dynamicLoadImage(game,key,path) {
+  game.load.image(key,path);
+  let loadComplete = false;
+  game.load.onLoadComplete.add(() => {
+    loadComplete = true;
+  },this);
+  while (!loadComplete);
+  return key;
+}
+
 class Ray extends Phaser.Line {
   constructor(x,y,angle,length) {
     super();
@@ -243,6 +253,13 @@ class Raycaster {
     else {
       Raycaster.DEBUG.time.advancedTiming = true;
     }
+  }
+
+  loadImage(key,path) {
+    this.gameInstances.forEach(g => {
+      dynamicLoadImage(g,key,path);
+    })
+    return key;
   }
 
   createGame(g) {
