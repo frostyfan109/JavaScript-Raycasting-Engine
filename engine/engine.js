@@ -53,7 +53,7 @@ class PlanarObject extends Phaser.Line {
     //Called on PlanarObject every update loop - should be overloaded to add additional functionality to custom objects
   }
   render() {
-    //Called on PlanarObject every render loop - should contain any render logic that would be contained within the PLanarObject::update method
+    //Called on PlanarObject every render loop - should be overloaded to add any render logic that would be contained within the PLanarObject::update method
   }
 }
 
@@ -93,7 +93,7 @@ class EntitySprite extends Phaser.Sprite {
 
 class Entity extends PlanarObject {
   /*
-  Native renderable object with camera - has the capability to cast rays and move
+  Native renderable object with a camera and built-in movement functionality
 
   @param {int} x - Initial x-axis coordinate
   @param {int} y - Initial y=axis coordinate
@@ -104,10 +104,13 @@ class Entity extends PlanarObject {
   @param {int} data.fov - Fov in degrees of Entity (<=0 if the Entity does not cast rays)
   @param {int} data.speed - Speed of Entity in pixels per (second squared)
   @param {int} data.lookSpeed - Speed at which Entity turns in degrees/radians per second squared (varies depending on version of Phaser)
-  @param {int} [data.angle=0] - Initial angle that the Entity faces
-  @param {Object} options - Additional PLanarObject options
+  @param {Phaser.Game} [game=null] - Instance of game that the Entity will store for use when rendering and performing other operations
+    Entity::setupMouse(Phaser.Game game) must be called before the mouse will function if no game instance is passed to the Entity
+  @param {Object} [options={}] - Additional PLanarObject options
   @param {String} options.color - Color object of the Entity, given a texture is not present
-  @param {Boolean} options.render - Boolean governing whether or not the object will be rendered
+  @param {Boolean} options.render - Boolean regarding whether or not the object will be rendered
+  @param {Boolean} options.useMouse - Boolean regarding whether or not the object will hook into mouse on instantiation
+  @param {int} [angle=0] - Initial angle that the Entity faces
   */
   constructor(x,y,width,height,hasCamera,data,game=null,options={},angle=0) {
     super(x,y,x+width,y,height,options);
@@ -119,43 +122,59 @@ class Entity extends PlanarObject {
     this.speed = data.speed;
     this.lookSpeed = data.lookSpeed;
 
+
     this.drawFov = true;
     this.drawCollision = true;
 
     this.sprite = new EntitySprite((this.start.x+this.end.x)/2,(this.start.y+this.end.y)/2);
     this.sprite.angle = angle;
     this.rays = [];
-  }
 
-  handleInput() {
-    /*
-    Should be overloaded in order to handle input of the Entity
-    */
+    if (this.game instanceof Phaser.Game) {
+      this.setupMouse(this.game)
+      if ("useMouse" in options && options.useMouse) {
+        this.startMouse(this.game);
+      }
+      else {
+        this.stopMouse(this.game);
+      }
+    }
+    delete options.useMouse;
   }
 
   castRays() {
     if (!this.hasCamera) return;
     this.rays.length = 0; //empty ray array
-    // for (let i=0;i<Raycaster.TOTAL_RAYS;i++) {
-    //   let fovAngle = ((i/Raycaster.TOTAL_RAYS)*this.fov)-(this.fov/2);
-    //   let angle = (this.angle.toDeg() - 90) + fovAngle;
-    //   let ray = new Ray(this.sprite.body.center.x,this.sprite.body.center.y,angle.toRad(),Entity.RENDER_DISTANCE);
-    //   this.rays.push(ray);
-    // }
 
     //distToProjSurface = total_rays/2 / tan(half_of_fov_in_rad)
     let distToProjSurface = (Raycaster.TOTAL_RAYS/2) / Math.tan((this.fov/2).toRad());
     for (let x=0;x<Raycaster.TOTAL_RAYS;x++) {
       let angle = Math.atan((x-(Raycaster.TOTAL_RAYS/2)) / distToProjSurface);
       angle += (this.sprite.angle).toRad();
-      // angle += x/this.totalRays;
       let ray = new Ray(this.sprite.body.center.x,this.sprite.body.center.y,angle,Entity.RENDER_DISTANCE);
       this.rays.push(ray);
     }
   }
 
-  turn(dir) {
-    let ang = dir*this.lookSpeed;
+  setupMouse(game=this.game) {
+    game.canvas.addEventListener('mousedown',() => {Raycaster.requestPointerLock(game);},this);
+    game.input.addMoveCallback((pointer,x,y,click) => {this.mouseMove(game,pointer,x,y,click);},this);
+  }
+
+  startMouse(game=this.game) {
+    game.input.mouse.start();
+  }
+  stopMouse(game=this.game) {
+    game.input.mouse.stop();
+  }
+
+  mouseMove(game,pointer,x,y,click) {
+    //Should be overloaded to add functionality to mouse
+    //Should only be used in non split screen games
+  }
+
+  turn(dir,mult) {
+    let ang = dir*this.lookSpeed*mult;
     // this.rotate(ang,true);
     // this.sprite.angle = this.angle;
     this.sprite.body.angularVelocity = ang;
@@ -284,6 +303,8 @@ class Entity extends PlanarObject {
   }
 }
 
+Entity.MOUSE_TURN_MULT = 1/4;
+Entity.KEYBOARD_TURN_MULT = 1.25;
 Entity.RENDER_DISTANCE = 800;
 
 class Raycaster {
@@ -353,7 +374,6 @@ class Raycaster {
   }
 
 
-
   addGameObject(obj) {
     this.objects.push(obj);
   }
@@ -390,7 +410,6 @@ class Raycaster {
   handleRays() {
     this.objects.forEach(obj => {
       if (obj instanceof Entity) {
-        obj.handleInput();
         obj.rays.forEach(ray => {
           // Raycaster.DEBUG.debug.geom(ray);
           this.objects.forEach(colObj => {
@@ -438,6 +457,10 @@ class Raycaster {
       }
     });
   }
+}
+
+Raycaster.requestPointerLock = function(game) {
+  game.input.mouse.requestPointerLock();
 }
 
 function intersect(x1, y1, x2, y2, x3, y3, x4, y4) {

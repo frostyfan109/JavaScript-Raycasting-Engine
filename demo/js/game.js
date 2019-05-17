@@ -11,10 +11,10 @@ class Player extends Entity {
       {
         fov:100,
         speed:200,
-        lookSpeed:200
+        lookSpeed:200,
       },
       g,
-      undefined,
+      {useMouse:true},
       angle
     );
     this.keys = {
@@ -40,12 +40,19 @@ class Player extends Entity {
       this.move(-1,0);
     }
     if (this.keys.left.isDown) {
-      this.turn(-1);
+      this.turn(-1,Entity.KEYBOARD_TURN_MULT);
     }
     if (this.keys.right.isDown) {
-      this.turn(1);
+      this.turn(1,Entity.KEYBOARD_TURN_MULT);
     }
   }
+
+  mouseMove(game) {
+    let moveX = game.input.mouse.event.movementX;
+    let moveY = game.input.mouse.event.movementY;
+    this.turn(Math.sign(moveX)*Math.sqrt(moveX**2+moveY**2),Entity.MOUSE_TURN_MULT);
+  }
+
   update() {
   }
   render() {
@@ -87,6 +94,7 @@ let GameObj = {
     // TODO: add textures to walls
     // TODO: add multidimensional planarobject helper class
     // TODO: add collision support
+    // TODO: add entity support
 
     // game.load.image('foo','images/foo625.png');
 
@@ -100,12 +108,13 @@ let GameObj = {
   },
   update: function() {
     raycaster.update();
+    player.handleInput();
   },
   render: function() {
   }
 };
 
-let raycaster = new Raycaster(1500,750,'',250,false);
+let raycaster = new Raycaster(1000,600,'',1000/2,false);
 raycaster.renderFPS = true;
 let player;
 let map;
