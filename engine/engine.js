@@ -8,14 +8,8 @@ Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 }
 
-function dynamicLoadImage(game,key,path) {
-  game.load.image(key,path);
-  let loadComplete = false;
-  game.load.onLoadComplete.add(() => {
-    loadComplete = true;
-  },this);
-  while (!loadComplete);
-  return key;
+function rgbToHex(r,g,b) {
+  return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
 class Ray extends Phaser.Line {
@@ -33,6 +27,7 @@ class PlanarObject extends Phaser.Line {
     super(x,y,x2,y2);
     this.h = height;
     this.options = {
+      texture:null,
       color:"rgba(255,255,255,1)",
       render:true
     };
@@ -41,6 +36,12 @@ class PlanarObject extends Phaser.Line {
         this.options[key] = options[key];
       }
     }
+  }
+  update() {
+    //Called on PlanarObject every update loop - should be overloaded to add additional functionality to custom objects
+  }
+  render() {
+    //Called on PlanarObject every render loop - should contain any render logic that would be contained within the PLanarObject::update method
   }
 }
 
@@ -94,10 +95,10 @@ class Entity extends PlanarObject {
   @param {String} options.color - CSS color string of the Entity given a texture is not present
   @param {Boolean} options.render - Boolean governing whether or not the object will be rendered
   */
-  constructor(x,y,width,height,hasCamera,data,options={},angle=0) {
+  constructor(x,y,width,height,hasCamera,data,game=null,options={},angle=0) {
     super(x,y,x+width,y,height,options);
     // this.rotate(angle,true);
-
+    this.game = game;
     this.hasCamera = hasCamera;
     this.data = data;
     this.fov = data.fov;
@@ -168,20 +169,22 @@ class Entity extends PlanarObject {
     this.centerOn(this.sprite.body.center.x,this.sprite.body.center.y);
   }
 
-  renderSky(color="#63b9ff") {
+  renderSky(game=this.game,color="#63b9ff") {
     game.debug.geom(new Phaser.Rectangle(0,0,game.world.width,game.world.height/2),color);
   }
 
-  renderGround(color="#e2e2e2") {
+  renderGround(game=this.game,color="#e2e2e2") {
     game.debug.geom(new Phaser.Rectangle(0,game.world.height/2,game.world.width,game.world.height/2),color);
   }
 
-  renderPerspective(game) {
+  renderView(game=this.game) {
     let points = [];
     this.rays.forEach((ray,i) => {
       ray.collisions.slice().sort((c1,c2) => Math.sqrt((c2.p.x-ray.origin.x)**2 + (c2.p.y-ray.origin.y)**2) - Math.sqrt((c1.p.x-ray.origin.x)**2 + (c1.p.y-ray.origin.y)**2)).forEach((col,n) => {
         let collision = col.p;
         let collisionObject = col.obj;
+
+        let texture = col.obj.options.texture;
 
 
         let rayLen = this.rays.length;
@@ -204,6 +207,26 @@ class Entity extends PlanarObject {
         );
         points.push(new Phaser.Line(column.x,column.y,column.x+column.width,column.y+column.height));
         game.debug.geom(column,color);
+        if (texture !== null) {
+          let textureData = game.cache.getImage(texture);
+          // let textureX = textureData.width - Math.floor(column.x*textureData.width) - 1;
+          let textureX = column.x;
+          let textureY = column.y;
+          let textureWidth = column.width;
+          let textureHeight = column.height;
+
+          // let bmd = game.make.bitmapData(textureWidth,textureHeight);
+          // bmd.draw(texture,textureX,textureY);
+          //
+          // for (let y=0;y<bmd.height;y++) {
+          //   for (let x=0;x<bmd.width;x++) {
+          //     let rgb = bmd.getPixelRGB(x,y);
+          //     game.debug.geom(new Phaser.Point(x,y),"#"+rgbToHex(rgb.r,rgb.g,rgb.b));
+          //   }
+          // }
+        }
+        else {
+        }
       });
     });
     if (Raycaster.DEBUG_MODE) {
@@ -237,6 +260,8 @@ class Raycaster {
     Raycaster.DEBUG_MODE = debug;
     Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
 
+
+    this.renderFPS = debug ? true : false;
     this.instanceWidth = width;
     this.instanceHeight = height;
     this.instanceParent = parent;
@@ -257,8 +282,8 @@ class Raycaster {
 
   loadImage(key,path) {
     this.gameInstances.forEach(g => {
-      dynamicLoadImage(g,key,path);
-    })
+      g.load.image(key,path);
+    });
     return key;
   }
 
@@ -295,6 +320,10 @@ class Raycaster {
     this.objects.push(obj);
   }
 
+  addGameObjects(objs) {
+    objs.forEach(obj => this.addGameObject(obj));
+  }
+
   removeGameObject(obj) {
     this.objects = this.objects.filter(o => o !== obj);
   }
@@ -307,7 +336,6 @@ class Raycaster {
         obj.sprite.body.velocity.x = 0;
         obj.sprite.body.velocity.y = 0;
         obj.sprite.body.angularVelocity = 0;
-        // console.log(obj.sprite.angle,obj.angle);
         obj.rotate(((90).toRad()+obj.sprite.angle.toRad())-obj.angle);
         obj.center();
         obj.castRays();
@@ -315,6 +343,10 @@ class Raycaster {
     });
 
     this.handleRays();
+
+    this.objects.forEach(obj => {
+      obj.update();
+    });
   }
 
   handleRays() {
@@ -338,9 +370,10 @@ class Raycaster {
   }
 
   renderDebug() {
-    if (Raycaster.DEBUG_MODE) {
-      this.objects.forEach(obj => {
-        if (obj instanceof PlanarObject) {
+    this.objects.forEach(obj => {
+      obj.render();
+      if (obj instanceof PlanarObject) {
+        if (Raycaster.DEBUG_MODE) {
           Raycaster.DEBUG.debug.geom(obj,obj.options.color);
           if (obj instanceof Entity) {
             obj.rays.forEach(ray => {
@@ -354,12 +387,14 @@ class Raycaster {
               }
             });
           }
+          if (this.renderFPS) {
+            [...this.gameInstances,Raycaster.DEBUG].forEach(instance => {
+              instance.debug.text(instance.time.fps,25,25,"#00ff00");
+            });
+          }
         }
-        [...this.gameInstances,Raycaster.DEBUG].forEach(instance => {
-          instance.debug.text(instance.time.fps,25,25,"#00ff00");
-        });
-      });
-    }
+      }
+    });
   }
 }
 

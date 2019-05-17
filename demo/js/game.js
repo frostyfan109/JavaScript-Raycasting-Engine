@@ -1,5 +1,5 @@
 class Player extends Entity {
-  constructor(x,y) {
+  constructor(g,x,y) {
     let [width,height] = [25,25];
     let angle = 90;
     super(
@@ -13,6 +13,7 @@ class Player extends Entity {
         speed:200,
         lookSpeed:200
       },
+      g,
       undefined,
       angle
     );
@@ -45,14 +46,48 @@ class Player extends Entity {
       this.turn(1);
     }
   }
+  update() {
+  }
+  render() {
+    this.renderGround(this.game);
+    this.renderSky(this.game);
+    this.renderView(this.game);
+  }
+}
+
+class RotatingWall extends Wall {
+  constructor(x,y,x2,y2,height,options={}) {
+    super(x,y,x2,y2,height,options);
+  }
+  update() {
+    this.rotate((1).toRad());
+  }
+}
+
+function generateMap() {
+  let map = [
+    new Wall(300,200,40,200,100,{texture:'foo',color:"rgba(50,50,50,1)"}),
+    new Wall(200,400,40,200,100,{texture:'foo',color:"rgba(0,255,0,.5)"}),
+    new RotatingWall(200,25,225,175,100,{color:"rgba(255,255,0,.5)"})
+  ]
+  return map;
 }
 
 let GameObj = {
   preload: function() {
-    player = new Player(50,50);
+    raycaster.loadImage('foo','images/foo625.png');
+
+    map = generateMap();
+
+    player = new Player(game,50,50);
     raycaster.addGameObject(player);
-    raycaster.addGameObject(new Wall(300,200,40,200,100,{color:"rgba(50,50,50,1)"}));
-    raycaster.addGameObject(new Wall(200,400,40,200,100,{color:"rgba(0,255,0,.5)"}));
+    raycaster.addGameObjects(map);
+
+    // TODO: add textures to walls
+    // TODO: add multidimensional planarobject helper class
+    // TODO: add collision support
+
+    // game.load.image('foo','images/foo625.png');
 
   },
   init: function() {
@@ -60,19 +95,17 @@ let GameObj = {
   },
   create: function() {
     raycaster.start();
-    // raycaster.loadImage('foo','bar');
+    // game.add.image(0,0,'foo');
   },
   update: function() {
     player.handleInput();
     raycaster.update();
   },
   render: function() {
-    player.renderGround();
-    player.renderSky();
-    player.renderPerspective(game);
   }
 };
 
 let raycaster = new Raycaster(600,500,'',undefined,true);
 let player;
+let map;
 const game = raycaster.createGame(GameObj);
