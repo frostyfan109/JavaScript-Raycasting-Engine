@@ -99,14 +99,14 @@ let GameObj = {
     // game.add.image(0,0,'foo');
   },
   update: function() {
-    player.handleInput();
     raycaster.update();
   },
   render: function() {
   }
 };
 
-let raycaster = new Raycaster(600,500,'',100,true);
+let raycaster = new Raycaster(1500,750,'',250,false);
+raycaster.renderFPS = true;
 let player;
 let map;
 const game = raycaster.createGame(GameObj);
