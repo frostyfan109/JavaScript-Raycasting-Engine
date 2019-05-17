@@ -60,15 +60,16 @@ class RotatingWall extends Wall {
     super(x,y,x2,y2,height,options);
   }
   update() {
-    this.rotate((1).toRad());
+    // this.rotate((3).toRad());
   }
 }
 
 function generateMap() {
   let map = [
-    new Wall(300,200,40,200,100,{texture:'foo',color:"rgba(50,50,50,1)"}),
-    new Wall(200,400,40,200,100,{texture:'foo',color:"rgba(0,255,0,.5)"}),
-    new RotatingWall(200,25,225,175,100,{color:"rgba(255,255,0,.5)"})
+    new Wall(300,200,40,200,100,{texture:'foo',color:new Color(50,50,50,1)}),
+    new Wall(200,400,40,200,100,{texture:'foo',color:new Color(0,255,0,.5)}),
+
+    new RotatingWall(200,5,225,185,100,{color:new Color(255,255,0,1)})
   ]
   return map;
 }
@@ -105,7 +106,7 @@ let GameObj = {
   }
 };
 
-let raycaster = new Raycaster(600,500,'',undefined,true);
+let raycaster = new Raycaster(600,500,'',100,true);
 let player;
 let map;
 const game = raycaster.createGame(GameObj);

@@ -12,6 +12,18 @@ function rgbToHex(r,g,b) {
   return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
 
+class Color {
+  constructor(r,g,b,a) {
+    this.r = r;
+    this.g = g;
+    this.b = b;
+    this.a = a;
+  }
+  toCSSString() {
+    return `rgba(${this.r},${this.g},${this.b},${this.a})`;
+  }
+}
+
 class Ray extends Phaser.Line {
   constructor(x,y,angle,length) {
     super();
@@ -28,7 +40,7 @@ class PlanarObject extends Phaser.Line {
     this.h = height;
     this.options = {
       texture:null,
-      color:"rgba(255,255,255,1)",
+      color:new Color(255,255,255,1),
       render:true
     };
     for (let key in options) {
@@ -92,7 +104,7 @@ class Entity extends PlanarObject {
   @param {int} data.lookSpeed - Speed at which Entity turns in degrees/radians per second squared (varies depending on version of Phaser)
   @param {int} [data.angle=0] - Initial angle that the Entity faces
   @param {Object} options - Additional PLanarObject options
-  @param {String} options.color - CSS color string of the Entity given a texture is not present
+  @param {String} options.color - Color object of the Entity, given a texture is not present
   @param {Boolean} options.render - Boolean governing whether or not the object will be rendered
   */
   constructor(x,y,width,height,hasCamera,data,game=null,options={},angle=0) {
@@ -169,20 +181,37 @@ class Entity extends PlanarObject {
     this.centerOn(this.sprite.body.center.x,this.sprite.body.center.y);
   }
 
-  renderSky(game=this.game,color="#63b9ff") {
-    game.debug.geom(new Phaser.Rectangle(0,0,game.world.width,game.world.height/2),color);
+  renderSky(game=this.game,color=new Color(99,185,255,1)) {
+    game.debug.geom(new Phaser.Rectangle(0,0,game.world.width,game.world.height/2),color.toCSSString());
   }
 
-  renderGround(game=this.game,color="#e2e2e2") {
-    game.debug.geom(new Phaser.Rectangle(0,game.world.height/2,game.world.width,game.world.height/2),color);
+  renderGround(game=this.game,color=new Color(226,226,226,1)) {
+    game.debug.geom(new Phaser.Rectangle(0,game.world.height/2,game.world.width,game.world.height/2),color.toCSSString());
   }
 
   renderView(game=this.game) {
     let points = [];
+    let renderedObjects = new Set();
     this.rays.forEach((ray,i) => {
-      ray.collisions.slice().sort((c1,c2) => Math.sqrt((c2.p.x-ray.origin.x)**2 + (c2.p.y-ray.origin.y)**2) - Math.sqrt((c1.p.x-ray.origin.x)**2 + (c1.p.y-ray.origin.y)**2)).forEach((col,n) => {
+      let collisions = ray.collisions.slice().sort((c1,c2) => Math.sqrt((c2.p.x-ray.origin.x)**2 + (c2.p.y-ray.origin.y)**2) - Math.sqrt((c1.p.x-ray.origin.x)**2 + (c1.p.y-ray.origin.y)**2));
+      for (let m=0;m<collisions.length;m++) {
+        let col = collisions[m];
+        col.renderThisFrame = true;
+        if (m > 0) {
+          let prevCol = collisions[m-1];
+          if (col.obj.options.color.a === 1) {
+            prevCol.renderThisFrame = false;
+          }
+        }
+      }
+      for (let n=0;n<collisions.length;n++) {
+        let col = collisions[n];
+        if (col.renderThisFrame === false) {
+          continue;
+        }
         let collision = col.p;
         let collisionObject = col.obj;
+        renderedObjects.add(collisionObject);
 
         let texture = col.obj.options.texture;
 
@@ -198,15 +227,17 @@ class Entity extends PlanarObject {
 
         let y = (game.world.height/2) - (projHeight/2);
 
-        let color = collisionObject.options.color;
+        let color = collisionObject.options.color.toCSSString();
         let column = new Phaser.Rectangle(
           Math.floor((i)*(game.world.width/rayLen)),
           (game.world.height/2)-((game.world.height / (projHeight/this.fov)) / 2),
           width,
           game.world.height/(projHeight/this.fov)
         );
-        points.push(new Phaser.Line(column.x,column.y,column.x+column.width,column.y+column.height));
+
+
         game.debug.geom(column,color);
+
         if (texture !== null) {
           let textureData = game.cache.getImage(texture);
           // let textureX = textureData.width - Math.floor(column.x*textureData.width) - 1;
@@ -227,18 +258,26 @@ class Entity extends PlanarObject {
         }
         else {
         }
-      });
+        points.push(new Phaser.Line(column.x,column.y,column.x+column.width,column.y+column.height));
+
+        // if (collisionObject.options.color.a === 1) {
+          // break;
+        // }
+      };
+      if (Raycaster.DEBUG_MODE) {
+        if (points.length > 0) {
+          // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].start.y,points[points.length-1].end.x,points[points.length-1].start.y),"#00ff00");
+          // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].end.y,points[points.length-1].end.x,points[points.length-1].end.y),"#00ff00");
+        }
+        points.forEach((point,i) => {
+          //   if (i === 0) return;
+          //   game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].start.y,point.start.x,point.start.y),"#ffffff");
+          //   game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].end.y,point.start.x,point.end.y),"#000000");
+        });
+      }
     });
     if (Raycaster.DEBUG_MODE) {
-      if (points.length > 0) {
-        // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].start.y,points[points.length-1].end.x,points[points.length-1].start.y),"#00ff00");
-        // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].end.y,points[points.length-1].end.x,points[points.length-1].end.y),"#00ff00");
-      }
-      points.forEach((point,i) => {
-      //   if (i === 0) return;
-      //   game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].start.y,point.start.x,point.start.y),"#ffffff");
-      //   game.debug.geom(new Phaser.Line(points[i-1].start.x,points[i-1].end.y,point.start.x,point.end.y),"#000000");
-      });
+      // console.log(renderedObjects.size);
     }
   }
 }
@@ -374,7 +413,7 @@ class Raycaster {
       obj.render();
       if (obj instanceof PlanarObject) {
         if (Raycaster.DEBUG_MODE) {
-          Raycaster.DEBUG.debug.geom(obj,obj.options.color);
+          Raycaster.DEBUG.debug.geom(obj,obj.options.color.toCSSString());
           if (obj instanceof Entity) {
             obj.rays.forEach(ray => {
               if (obj.drawFov) {
