@@ -60,7 +60,7 @@ class RotatingWall extends Wall {
     super(x,y,x2,y2,height,options);
   }
   update() {
-    // this.rotate((3).toRad());
+    this.rotate((3).toRad());
   }
 }
 
@@ -69,7 +69,7 @@ function generateMap() {
     new Wall(300,200,40,200,100,{texture:'foo',color:new Color(50,50,50,1)}),
     new Wall(200,400,40,200,100,{texture:'foo',color:new Color(0,255,0,.5)}),
 
-    new RotatingWall(200,5,225,185,100,{color:new Color(255,255,0,1)})
+    new RotatingWall(200,5,225,185,100,{color:new Color(255,255,0,.5)})
   ]
   return map;
 }
