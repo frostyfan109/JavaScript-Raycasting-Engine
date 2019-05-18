@@ -99,7 +99,11 @@ function generateMap() {
 let GameObj = {
   preload: function() {
     // raycaster.loadImage('foo','images/penguinBig.png');
-    let test = raycaster.loadTexture('foo','images/penguinBig.png',img => console.log(img));
+    let texture = raycaster.loadTexture('foo','images/penguinBig.png',function(texture) {
+      let img = texture.image;
+      console.log(img.width,img.height);
+    });
+
 
 
     // TODO: add multidimensional planarobject helper class
@@ -108,9 +112,6 @@ let GameObj = {
     // TODO: add shading? (may be too demanding)
     // TODO: add actual world dimensions (meaning true skybox and ground)
       // TODO: add gridded map helper
-
-
-    // game.load.image('foo','images/foo625.png');
 
   },
   init: function() {

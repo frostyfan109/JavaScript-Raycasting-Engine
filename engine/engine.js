@@ -34,9 +34,18 @@ class Texture {
     this.loaded = false;
   }
   load(data) {
-    this.image.src = URL.createObjectURL(data);
-    this.loaded = true;
-    URL.revokeObjectURL(data);
+    return new Promise((resolve,reject) => {
+      this.image.src = URL.createObjectURL(data);
+      this.image.onload = () => {
+        this.loaded = true;
+        resolve();
+      }
+      this.image.onerror = () => {
+        this.loaded = true;
+        reject(new Error("Failed to load texture '"+this.key+"'"));
+      }
+      URL.revokeObjectURL(data);
+    });
   }
 }
 
@@ -455,16 +464,17 @@ class Raycaster {
 
     xhr.onreadystatechange = () => {
       if (xhr.readyState == XMLHttpRequest.DONE) {
-        texture.load(xhr.response);
-        if (typeof callback === 'function') {
-          callback(texture);
-        }
+        texture.load(xhr.response).then(() => {
+          if (typeof callback === 'function') {
+            callback(texture);
+          }
+        });
       }
     }
 
     xhr.send();
 
-    return key;
+    return texture;
 
     // return key;
   }
