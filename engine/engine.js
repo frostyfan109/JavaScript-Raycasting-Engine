@@ -111,6 +111,10 @@ class EntitySprite extends Phaser.Sprite {
   }
 }
 
+function scale(num, inMin, inMax, outMin, outMax) {
+  return (num - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+}
+
 class Entity extends PlanarObject {
   /*
   Native renderable object with a camera and built-in movement functionality
@@ -293,20 +297,30 @@ class Entity extends PlanarObject {
         if (texture !== null) {
           let textureData = game.cache.getImage(texture);
           // let textureX = textureData.width - Math.floor(column.x*textureData.width) - 1;
-          let textureX = column.x;
-          let textureY = column.y;
-          let textureWidth = column.width;
-          let textureHeight = column.height;
+          let columnX = column.x;
+          let columnY = column.y;
+          let columnWidth = column.width;
+          let columnHeight = column.height;
 
-          // let bmd = game.make.bitmapData(textureWidth,textureHeight);
-          // bmd.draw(texture,textureX,textureY);
-          //
-          // for (let y=0;y<bmd.height;y++) {
-          //   for (let x=0;x<bmd.width;x++) {
-          //     let rgb = bmd.getPixelRGB(x,y);
-          //     game.debug.geom(new Phaser.Point(x,y),"#"+rgbToHex(rgb.r,rgb.g,rgb.b));
-          //   }
-          // }
+
+          let img = textureData;
+
+          let distanceFromStart = Math.sqrt((collision.x-collisionObject.start.x)**2+(collision.y-collisionObject.start.y)**2);
+          let pixelColumn = scale(distanceFromStart,0,collisionObject.length,0,img.width);
+          let imageHeight = img.height;
+
+          ctx.drawImage(
+            img, //img
+            pixelColumn, //imageX
+            0, //imageY
+            1, //imageWidth
+            imageHeight, //imageHeight
+            column.x, //canvasX
+            column.y, //canvasY
+            column.width, //imageScaleWidth
+            column.height //imageScaleHeight
+          );
+
         }
         else {
         }

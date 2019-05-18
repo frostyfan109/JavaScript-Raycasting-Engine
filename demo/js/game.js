@@ -81,13 +81,13 @@ class RotatingWall extends Wall {
 
 function generateMap() {
   let map = [
-    new Wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)}),
-    new Wall(200,400,40,200,1,{texture:'foo',color:new Color(0,255,0,.5)}),
+    new Wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)})
+    // new Wall(200,400,40,200,1,{texture:'foo',color:new Color(0,255,0,.5)})
 
-    new RotatingWall(200,5,225,185,.6,{color:new Color(210,210,0,.5)}),
-    new RotatingWall(400,5,225,185,1,{color:new Color(230,230,0,1)}),
-    new RotatingWall(500,50,400,185,1,{color:new Color(255,255,0,.8)}),
-    new RotatingWall(200,5,600,185,1,{color:new Color(255,255,0,1)})
+    // new RotatingWall(200,5,225,185,1.25,{color:new Color(210,210,0,.5)}),
+    // new RotatingWall(400,5,225,185,1,{color:new Color(230,230,0,1)}),
+    // new RotatingWall(500,50,400,185,1,{color:new Color(255,255,0,.8)}),
+    // new RotatingWall(200,5,600,185,1,{color:new Color(255,255,0,1)})
 
 
 
@@ -97,7 +97,7 @@ function generateMap() {
 
 let GameObj = {
   preload: function() {
-    raycaster.loadImage('foo','images/foo625.png');
+    raycaster.loadImage('foo','images/penguin.png');
 
     map = generateMap();
 
@@ -132,7 +132,7 @@ let GameObj = {
   }
 };
 
-let raycaster = new Raycaster(1000,600,'',undefined,1000,false,{variableHeight:true});
+let raycaster = new Raycaster(1000,600,'',undefined,400,false,{variableHeight:false});
 raycaster.renderFPS = true;
 let player;
 let map;
