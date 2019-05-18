@@ -101,11 +101,6 @@ let GameObj = {
     // raycaster.loadImage('foo','images/penguinBig.png');
     let test = raycaster.loadTexture('foo','images/penguinBig.png',img => console.log(img));
 
-    map = generateMap();
-
-    player = new Player(game,50,50);
-    raycaster.addGameObject(player);
-    raycaster.addGameObjects(map);
 
     // TODO: add multidimensional planarobject helper class
     // TODO: add collision support
@@ -122,8 +117,13 @@ let GameObj = {
     raycaster.init();
   },
   create: function() {
-    raycaster.start();
+    map = generateMap();
 
+    player = new Player(game,50,50);
+    raycaster.addGameObject(player);
+    raycaster.addGameObjects(map);
+
+    raycaster.start();
 
 
 
@@ -138,7 +138,29 @@ let GameObj = {
   }
 };
 
-let raycaster = new Raycaster(1000,600,'',undefined,500,false,{variableHeight:false});
+let loadState = {
+  preload: function() {
+  },
+  create: function() {
+    this.elapsed = 0;
+    this.dots = '';
+    this.text = this.add.text(0,0,"Loading",{fill:"#ff0000",boundsAlignH:"center",boundsAlignV:"middle"});
+    this.text.setTextBounds(0,0,this.world.width,this.world.height);
+  },
+  update: function() {
+    if (Math.floor(this.elapsed/500) > 0) {
+      this.elapsed = 0;
+      this.dots += '.'
+      if (this.dots.length > 3) {
+        this.dots = '';
+      }
+    }
+    this.text.setText('Loading'+this.dots);
+    this.elapsed += this.time.elapsed;
+  }
+}
+
+let raycaster = new Raycaster(1000,600,'',undefined,500,false,{variableHeight:false,assetLoadState:null});
 raycaster.renderFPS = true;
 let player;
 let map;

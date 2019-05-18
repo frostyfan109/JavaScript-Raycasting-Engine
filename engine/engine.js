@@ -241,11 +241,17 @@ class Entity extends PlanarObject {
   }
 
   renderSky(game=this.game,color=new Color(99,185,255,1)) {
-    game.debug.geom(new Phaser.Rectangle(0,0,game.world.width,game.world.height/2),color.toCSSString());
+    let ctx = game.canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.fillStyle = color.toCSSString();
+    ctx.fillRect(0,0,game.world.width,game.world.height/2);
   }
 
   renderGround(game=this.game,color=new Color(226,226,226,1)) {
-    game.debug.geom(new Phaser.Rectangle(0,game.world.height/2,game.world.width,game.world.height/2),color.toCSSString());
+    let ctx = game.canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.fillStyle = color.toCSSString();
+    ctx.fillRect(0,game.world.height/2,game.world.width,game.world.height/2);
   }
 
   renderView(game=this.game) {
@@ -383,14 +389,27 @@ class Raycaster {
   @param {Boolean} [options.variableHeight=false] - Sets the global, Raycaster.VARIABLE_HEIGHT, on instantiation
     Must be set in order for variable height to render properly or else taller objects will not be rendered when behind shorter ones
     // NOTE: Variable height results in some loss of performance
+  @param {Phaser.State | null} [options.assetLoadState=null] - Loads all assets synchronously before proceeding to the preload state. If null, loads assets asynchronously.
   */
-  constructor(width,height,parent,renderDistance=1e7,totalRays=null,debug=false,options={variableHeight:false}) {
+  constructor(width,height,parent,renderDistance=1e7,totalRays=null,debug=false,options={}) {
+    this.options = {
+      variableHeight:false,
+      assetLoadState:null
+    }
+
+    for (let i in options) {
+      this.options[i] = options[i];
+    }
+
     Entity.RENDER_DISTANCE = renderDistance;
-    Raycaster.VARIABLE_HEIGHT = options.variableHeight;
+    Raycaster.VARIABLE_HEIGHT = this.options.variableHeight;
     Raycaster.DEBUG_MODE = debug;
     Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
 
+
     this.create = new Raycaster.ObjectFactory(this);
+
+    this.assetLoadState = this.options.assetLoadState;
 
     this.renderFPS = debug ? true : false;
     this.instanceWidth = width;
@@ -434,10 +453,12 @@ class Raycaster {
 
     this._textures[key] = texture;
 
-    xhr.onreadystatechange = function() {
+    xhr.onreadystatechange = () => {
       if (xhr.readyState == XMLHttpRequest.DONE) {
         texture.load(xhr.response);
-        typeof callback === 'function' && callback(texture);
+        if (typeof callback === 'function') {
+          callback(texture);
+        }
       }
     }
 
@@ -451,16 +472,42 @@ class Raycaster {
   createGame(g) {
     let preload = g.preload;
     g.preload = (...args) => {
-      instance.time.totalFrames = 0;
-      preload(...args);
+        instance.time.totalFrames = 0;
+        preload(...args);
     }
+
+
+    let loadState = this.assetLoadState;
+    if (loadState !== null) {
+      let loadStatePreload = loadState.preload;
+      loadState.preload = (...args) => {
+        preload();
+        loadStatePreload(...args);
+        let int = 10;
+        let f = () => {
+          if (Object.values(raycaster._textures).every(t => t.loaded)) {
+            instance.state.start('main');
+          }
+          else {
+            setTimeout(f,int);
+          }
+        }
+        setTimeout(f,int);
+      }
+      delete g.preload;
+    }
+
+
     let render = g.render;
     g.render = (...args) => {
       instance.time.totalFrames++;
       render(...args);
       this.renderDebug();
     }
-    let instance = new Phaser.Game(this.instanceWidth,this.instanceHeight,Phaser.CANVAS,this.instanceParent,g);
+
+    let state = this.assetLoadState !== null ? loadState : g;
+    let instance = new Phaser.Game(this.instanceWidth,this.instanceHeight,Phaser.CANVAS,this.instanceParent,state);
+    instance.state.add('main',g);
     this.gameInstances.push(instance);
     return instance;
   }
