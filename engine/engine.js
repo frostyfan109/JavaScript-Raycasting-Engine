@@ -38,7 +38,23 @@ class Ray extends Phaser.Line {
 }
 
 class PlanarObject extends Phaser.Line {
-  //Native renderable object
+  /*
+  Native renderable object (the equivalent of a line in the Euclidean plane)
+
+  @param {int} x - Initial starting x-axis coordinate
+  @param {int} y - Initial starting y-axis coordinate
+  @param {int} x2 - Initial ending x-axis coordinate
+  @param {int} y2 - Initial ending y-axis coordinate
+  @param {int} height - Initial height of object (relative to the projected height of the object)
+  @param {Object} [options={}] - Additional PlanarObject options
+  @param {String} [options.texture=null] - Image key referencing the cached texture (must be preloaded into the cache)
+  @param {Color} [options.color=new Color(255,255,255,1)] - Color object of the object (given a texture is not present)
+    // NOTE: It is not recommended to use colors of very high intensity, such as rgb(255,255,0), nor those of very low intensity, such as rgb(5,5,0)
+    // NOTE: but rather shades such as rgb(230,230,0).
+    // NOTE: This is because with colors of very high or low intensity, opacity will often not be perceivable as it either brightens or darkens the color.
+
+  @param {Boolean} [options.render=true] - Boolean regarding whether or not the object will be rendered
+  */
   constructor(x,y,x2,y2,height,options={}) {
     super(x,y,x2,y2);
     this.h = height;
@@ -100,7 +116,7 @@ class Entity extends PlanarObject {
   Native renderable object with a camera and built-in movement functionality
 
   @param {int} x - Initial x-axis coordinate
-  @param {int} y - Initial y=axis coordinate
+  @param {int} y - Initial y-axis coordinate
   @param {int} width - Width of the Entity
   @param {int} height - Height of the Entity
   @param {Boolean} hasCamera - When false, the Entity will cast out 0 rays
@@ -111,12 +127,12 @@ class Entity extends PlanarObject {
   @param {Phaser.Game} [game=null] - Instance of game that the Entity will store for use when rendering and performing other operations
     Entity::setupMouse(Phaser.Game game) must be called before the mouse will function if no game instance is passed to the Entity
   @param {Object} [options={}] - Additional PLanarObject options
-  @param {String} options.color - Color object of the Entity, given a texture is not present
-  @param {Boolean} options.render - Boolean regarding whether or not the object will be rendered
-  @param {Boolean} options.useMouse - Boolean regarding whether or not the object will hook into mouse on instantiation
+  @param {String} options.color - Color object of the Entity (given a texture is not present)
+  @param {Boolean} options.render - Boolean regarding whether or not the Entity will be rendered
+  @param {Boolean} [options.useMouse=false] - Boolean regarding whether or not the object will hook into mouse on instantiation
   @param {int} [angle=0] - Initial angle that the Entity faces
   */
-  constructor(x,y,width,height,hasCamera,data,game=null,options={},angle=0) {
+  constructor(x,y,width,height,hasCamera,data,game=null,options={useMouse:false},angle=0) {
     super(x,y,x+width,y,height,options);
     // this.rotate(angle,true);
     this.game = game;
@@ -136,7 +152,7 @@ class Entity extends PlanarObject {
 
     if (this.game instanceof Phaser.Game) {
       this.setupMouse(this.game)
-      if ("useMouse" in options && options.useMouse) {
+      if (options.useMouse) {
         this.startMouse(this.game);
       }
       else {
@@ -177,11 +193,12 @@ class Entity extends PlanarObject {
     //Should only be used in non split screen games
   }
 
-  turn(dir,mult) {
-    let ang = dir*this.lookSpeed*mult;
+  turn(horiz,mult) {
+    let ang = horiz*this.lookSpeed*mult;
     // this.rotate(ang,true);
     // this.sprite.angle = this.angle;
     this.sprite.body.angularVelocity = ang;
+
     this.center();
   }
 
@@ -220,19 +237,21 @@ class Entity extends PlanarObject {
     let renderedObjects = new Set();
     this.rays.forEach((ray,i) => {
       let collisions = ray.collisions.slice().sort((c1,c2) => Math.sqrt((c2.p.x-ray.origin.x)**2 + (c2.p.y-ray.origin.y)**2) - Math.sqrt((c1.p.x-ray.origin.x)**2 + (c1.p.y-ray.origin.y)**2));
-      for (let m=0;m<collisions.length;m++) {
-        let col = collisions[m];
-        col.renderThisFrame = true;
-        if (m > 0) {
-          let prevCol = collisions[m-1];
-          if (col.obj.options.color.a === 1) {
-            prevCol.renderThisFrame = false;
+      if (!Raycaster.VARIABLE_HEIGHT) {
+        for (let m=0;m<collisions.length;m++) {
+          let col = collisions[m];
+          col.renderThisFrame = true;
+          if (m > 0) {
+            let prevCol = collisions[m-1];
+            if (col.obj.options.color.a === 1) {
+              prevCol.renderThisFrame = false;
+            }
           }
         }
       }
       for (let n=0;n<collisions.length;n++) {
         let col = collisions[n];
-        if (col.renderThisFrame === false) {
+        if (!Raycaster.VARIABLE_HEIGHT && col.renderThisFrame === false) {
           continue;
         }
         let collision = col.p;
@@ -251,23 +270,23 @@ class Entity extends PlanarObject {
         let projHeight = distance * Math.cos((Math.atan2(dy,dx)-this.sprite.angle.toRad()));
         let actualHeight = collisionObject.h;
 
-        let y = (game.world.height/2) - (projHeight/2);
 
         let color = collisionObject.options.color;
+
+        let x = Math.floor((i)*(game.world.width/rayLen));
+
+        let projectedHeight = (game.world.height / (projHeight/this.fov));
+        let height = 2*actualHeight*(projectedHeight/2);
+        let y = (game.world.height/2)-((height)-(projectedHeight/2));
+
         let column = new Phaser.Rectangle(
-          Math.floor((i)*(game.world.width/rayLen)),
-          (game.world.height/2)-((game.world.height / (projHeight/this.fov)) / 2),
-          width,
-          game.world.height/(projHeight/this.fov)
+          x, //x
+          y, //y
+          width, //width
+          height //height
         );
 
 
-        // game.debug.geom(column,color);
-        // console.log(color.toHex());
-        if (game.time.totalFrames % 60 === 1 && i / (Raycaster.TOTAL_RAYS/2) === 1) {
-          console.log(i);
-          console.log(color.toHex());
-        }
         ctx.beginPath();
         ctx.fillStyle = color.toCSSString();
         ctx.fillRect(column.x,column.y,column.width,column.height);
@@ -332,9 +351,13 @@ class Raycaster {
     Recommended to be left as null as it uses it will use the width of the game instances
     Can be reduced or increased to increase or reduce fps respectively
   @param {Object} [options={}] - Additional optional parameters to speed up initialization of object
+  @param {Boolean} [options.variableHeight=false] - Sets the global, Raycaster.VARIABLE_HEIGHT, on instantiation
+    Must be set in order for variable height to render properly or else taller objects will not be rendered when behind shorter ones
+    // NOTE: Variable height results in some loss of performance
   */
-  constructor(width,height,parent,renderDistance=1e7,totalRays=null,debug=false,options={}) {
+  constructor(width,height,parent,renderDistance=1e7,totalRays=null,debug=false,options={variableHeight:false}) {
     Entity.RENDER_DISTANCE = renderDistance;
+    Raycaster.VARIABLE_HEIGHT = options.variableHeight;
     Raycaster.DEBUG_MODE = debug;
     Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
 
@@ -513,5 +536,4 @@ function intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
 Raycaster.DEBUG = null;
 Raycaster.TOTAL_RAYS = null;
 Raycaster.DEBUG_MODE = false;
-
-// module.exports = RayCaster;
+Raycaster.VARIABLE_HEIGHT = false;

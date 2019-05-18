@@ -14,7 +14,7 @@ class Player extends Entity {
         lookSpeed:200,
       },
       g,
-      {useMouse:true},
+      {useMouse:false},
       angle
     );
     this.keys = {
@@ -24,6 +24,8 @@ class Player extends Entity {
       d:game.input.keyboard.addKey(Phaser.Keyboard.D),
       left:game.input.keyboard.addKey(Phaser.Keyboard.LEFT),
       right:game.input.keyboard.addKey(Phaser.Keyboard.RIGHT),
+      up:game.input.keyboard.addKey(Phaser.Keyboard.UP),
+      down:game.input.keyboard.addKey(Phaser.Keyboard.DOWN),
     };
   }
   handleInput() {
@@ -45,12 +47,18 @@ class Player extends Entity {
     if (this.keys.right.isDown) {
       this.turn(1,Entity.KEYBOARD_TURN_MULT);
     }
+    if (this.keys.up.isDown) {
+      this.turn(0,Entity.KEYBOARD_TURN_MULT);
+    }
+    if (this.keys.down.isDown) {
+      this.turn(0,Entity.KEYBOARD_TURN_MULT);
+    }
   }
 
   mouseMove(game) {
     let moveX = game.input.mouse.event.movementX;
     let moveY = game.input.mouse.event.movementY;
-    this.turn(Math.sign(moveX)*Math.sqrt(moveX**2+moveY**2),Entity.MOUSE_TURN_MULT);
+    this.turn(moveX,Entity.MOUSE_TURN_MULT);
   }
 
   update() {
@@ -73,13 +81,13 @@ class RotatingWall extends Wall {
 
 function generateMap() {
   let map = [
-    new Wall(300,200,40,200,100,{texture:'foo',color:new Color(50,50,50,1)}),
-    new Wall(200,400,40,200,100,{texture:'foo',color:new Color(0,255,0,.5)}),
+    new Wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)}),
+    new Wall(200,400,40,200,1,{texture:'foo',color:new Color(0,255,0,.5)}),
 
-    new RotatingWall(200,5,225,185,100,{color:new Color(255,255,0,.5)}),
-    new RotatingWall(400,5,225,185,100,{color:new Color(255,255,0,1)}),
-    new RotatingWall(500,50,400,185,100,{color:new Color(255,255,0,.8)}),
-    new RotatingWall(200,5,600,185,100,{color:new Color(255,255,0,1)})
+    new RotatingWall(200,5,225,185,.6,{color:new Color(210,210,0,.5)}),
+    new RotatingWall(400,5,225,185,1,{color:new Color(230,230,0,1)}),
+    new RotatingWall(500,50,400,185,1,{color:new Color(255,255,0,.8)}),
+    new RotatingWall(200,5,600,185,1,{color:new Color(255,255,0,1)})
 
 
 
@@ -101,6 +109,10 @@ let GameObj = {
     // TODO: add multidimensional planarobject helper class
     // TODO: add collision support
     // TODO: add entity support
+    // TODO: add shading? (may be too demanding)
+    // TODO: add actual world dimensions (meaning true skybox and ground)
+      // TODO: add gridded map helper
+
 
     // game.load.image('foo','images/foo625.png');
 
@@ -120,7 +132,7 @@ let GameObj = {
   }
 };
 
-let raycaster = new Raycaster(1000,600,'',undefined,4000/2,false);
+let raycaster = new Raycaster(1000,600,'',undefined,1000,false,{variableHeight:true});
 raycaster.renderFPS = true;
 let player;
 let map;
