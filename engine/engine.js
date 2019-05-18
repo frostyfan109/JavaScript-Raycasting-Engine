@@ -8,6 +8,7 @@ Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 }
 
+
 function rgbToHex(r,g,b) {
   return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
@@ -18,6 +19,9 @@ class Color {
     this.g = g;
     this.b = b;
     this.a = a;
+  }
+  toHex() {
+    return parseInt(rgbToHex(this.r,this.g,this.b),16);
   }
   toCSSString() {
     return `rgba(${this.r},${this.g},${this.b},${this.a})`;
@@ -211,6 +215,7 @@ class Entity extends PlanarObject {
   }
 
   renderView(game=this.game) {
+    let ctx = game.canvas.getContext('2d');
     let points = [];
     let renderedObjects = new Set();
     this.rays.forEach((ray,i) => {
@@ -248,7 +253,7 @@ class Entity extends PlanarObject {
 
         let y = (game.world.height/2) - (projHeight/2);
 
-        let color = collisionObject.options.color.toCSSString();
+        let color = collisionObject.options.color;
         let column = new Phaser.Rectangle(
           Math.floor((i)*(game.world.width/rayLen)),
           (game.world.height/2)-((game.world.height / (projHeight/this.fov)) / 2),
@@ -257,8 +262,15 @@ class Entity extends PlanarObject {
         );
 
 
-        game.debug.geom(column,color);
-
+        // game.debug.geom(column,color);
+        // console.log(color.toHex());
+        if (game.time.totalFrames % 60 === 1 && i / (Raycaster.TOTAL_RAYS/2) === 1) {
+          console.log(i);
+          console.log(color.toHex());
+        }
+        ctx.beginPath();
+        ctx.fillStyle = color.toCSSString();
+        ctx.fillRect(column.x,column.y,column.width,column.height);
         if (texture !== null) {
           let textureData = game.cache.getImage(texture);
           // let textureX = textureData.width - Math.floor(column.x*textureData.width) - 1;
@@ -305,7 +317,7 @@ class Entity extends PlanarObject {
 
 Entity.MOUSE_TURN_MULT = 1/4;
 Entity.KEYBOARD_TURN_MULT = 1.25;
-Entity.RENDER_DISTANCE = 800;
+Entity.RENDER_DISTANCE = null;
 
 class Raycaster {
   /*
@@ -314,11 +326,15 @@ class Raycaster {
   @param {int} width - Width in pixels of game instances
   @param {int} height - Height in pixels of game instances
   @param {string | HTMlElement} parent - Parent element that game instances will be created within
+  @param {int} [renderDistance=100000] - Max length in pixels of rays that Entities cast out
+    Has infinitesimal effect on performance
   @param {int} [totalRays=null] - Total amount of rays that are cast out by an Entity
     Recommended to be left as null as it uses it will use the width of the game instances
     Can be reduced or increased to increase or reduce fps respectively
+  @param {Object} [options={}] - Additional optional parameters to speed up initialization of object
   */
-  constructor(width,height,parent,totalRays=null,debug=false) {
+  constructor(width,height,parent,renderDistance=1e7,totalRays=null,debug=false,options={}) {
+    Entity.RENDER_DISTANCE = renderDistance;
     Raycaster.DEBUG_MODE = debug;
     Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
 
@@ -352,11 +368,13 @@ class Raycaster {
   createGame(g) {
     let preload = g.preload;
     g.preload = (...args) => {
-      preload(args);
+      instance.time.totalFrames = 0;
+      preload(...args);
     }
     let render = g.render;
     g.render = (...args) => {
-      render(args);
+      instance.time.totalFrames++;
+      render(...args);
       this.renderDebug();
     }
     let instance = new Phaser.Game(this.instanceWidth,this.instanceHeight,Phaser.CANVAS,this.instanceParent,g);
@@ -496,5 +514,4 @@ Raycaster.DEBUG = null;
 Raycaster.TOTAL_RAYS = null;
 Raycaster.DEBUG_MODE = false;
 
-Phaser.Plugin.Raycaster = Raycaster;
 // module.exports = RayCaster;
