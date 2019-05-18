@@ -3,6 +3,7 @@ class Player extends Entity {
     let [width,height] = [25,25];
     let angle = 90;
     super(
+      raycaster,
       x,
       y,
       width,
@@ -81,7 +82,7 @@ class RotatingWall extends Wall {
 
 function generateMap() {
   let map = [
-    new Wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)})
+    raycaster.create.wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)})
     // new Wall(200,400,40,200,1,{texture:'foo',color:new Color(0,255,0,.5)})
 
     // new RotatingWall(200,5,225,185,1.25,{color:new Color(210,210,0,.5)}),
@@ -97,7 +98,8 @@ function generateMap() {
 
 let GameObj = {
   preload: function() {
-    raycaster.loadImage('foo','images/penguin.png');
+    // raycaster.loadImage('foo','images/penguinBig.png');
+    let test = raycaster.loadTexture('foo','images/penguinBig.png',img => console.log(img));
 
     map = generateMap();
 
@@ -105,7 +107,6 @@ let GameObj = {
     raycaster.addGameObject(player);
     raycaster.addGameObjects(map);
 
-    // TODO: add textures to walls
     // TODO: add multidimensional planarobject helper class
     // TODO: add collision support
     // TODO: add entity support
@@ -122,6 +123,11 @@ let GameObj = {
   },
   create: function() {
     raycaster.start();
+
+
+
+
+
     // game.add.image(0,0,'foo');
   },
   update: function() {
@@ -132,7 +138,7 @@ let GameObj = {
   }
 };
 
-let raycaster = new Raycaster(1000,600,'',undefined,400,false,{variableHeight:false});
+let raycaster = new Raycaster(1000,600,'',undefined,500,false,{variableHeight:false});
 raycaster.renderFPS = true;
 let player;
 let map;

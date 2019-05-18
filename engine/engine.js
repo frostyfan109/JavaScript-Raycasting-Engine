@@ -8,7 +8,6 @@ Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 }
 
-
 function rgbToHex(r,g,b) {
   return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
@@ -25,6 +24,19 @@ class Color {
   }
   toCSSString() {
     return `rgba(${this.r},${this.g},${this.b},${this.a})`;
+  }
+}
+
+class Texture {
+  constructor(key,image) {
+    this.key = key;
+    this.image = image;
+    this.loaded = false;
+  }
+  load(data) {
+    this.image.src = URL.createObjectURL(data);
+    this.loaded = true;
+    URL.revokeObjectURL(data);
   }
 }
 
@@ -55,8 +67,9 @@ class PlanarObject extends Phaser.Line {
 
   @param {Boolean} [options.render=true] - Boolean regarding whether or not the object will be rendered
   */
-  constructor(x,y,x2,y2,height,options={}) {
+  constructor(raycaster,x,y,x2,y2,height,options={}) {
     super(x,y,x2,y2);
+    this.raycaster = raycaster;
     this.h = height;
     this.options = {
       texture:null,
@@ -78,8 +91,8 @@ class PlanarObject extends Phaser.Line {
 }
 
 class Wall extends PlanarObject {
-  constructor(x,y,x2,y2,height,options={}) {
-    super(x,y,x2,y2,height,options);
+  constructor(raycaster,x,y,x2,y2,height,options={}) {
+    super(raycaster,x,y,x2,y2,height,options);
   }
 }
 
@@ -136,8 +149,8 @@ class Entity extends PlanarObject {
   @param {Boolean} [options.useMouse=false] - Boolean regarding whether or not the object will hook into mouse on instantiation
   @param {int} [angle=0] - Initial angle that the Entity faces
   */
-  constructor(x,y,width,height,hasCamera,data,game=null,options={useMouse:false},angle=0) {
-    super(x,y,x+width,y,height,options);
+  constructor(raycaster,x,y,width,height,hasCamera,data,game=null,options={useMouse:false},angle=0) {
+    super(raycaster,x,y,x+width,y,height,options);
     // this.rotate(angle,true);
     this.game = game;
     this.hasCamera = hasCamera;
@@ -295,7 +308,8 @@ class Entity extends PlanarObject {
         ctx.fillStyle = color.toCSSString();
         ctx.fillRect(column.x,column.y,column.width,column.height);
         if (texture !== null) {
-          let textureData = game.cache.getImage(texture);
+          // let textureData = game.cache.getImage(texture);
+          let textureData = this.raycaster.getTexture(texture).image;
           // let textureX = textureData.width - Math.floor(column.x*textureData.width) - 1;
           let columnX = column.x;
           let columnY = column.y;
@@ -303,14 +317,15 @@ class Entity extends PlanarObject {
           let columnHeight = column.height;
 
 
-          let img = textureData;
+          let image = textureData;
 
           let distanceFromStart = Math.sqrt((collision.x-collisionObject.start.x)**2+(collision.y-collisionObject.start.y)**2);
-          let pixelColumn = scale(distanceFromStart,0,collisionObject.length,0,img.width);
-          let imageHeight = img.height;
+          let pixelColumn = scale(distanceFromStart,0,collisionObject.length,0,image.width);
+          // console.log(image.width,image.height);
+          let imageHeight = image.height;
 
           ctx.drawImage(
-            img, //img
+            image, //image
             pixelColumn, //imageX
             0, //imageY
             1, //imageWidth
@@ -375,6 +390,7 @@ class Raycaster {
     Raycaster.DEBUG_MODE = debug;
     Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
 
+    this.create = new Raycaster.ObjectFactory(this);
 
     this.renderFPS = debug ? true : false;
     this.instanceWidth = width;
@@ -383,6 +399,8 @@ class Raycaster {
     this.gameInstances = [];
     this.objects = [];
     this.running = false;
+
+    this._textures = [];
   }
 
   init() {
@@ -400,6 +418,34 @@ class Raycaster {
       g.load.image(key,path);
     });
     return key;
+  }
+
+  getTexture(key) {
+    return this._textures[key];
+  }
+
+  loadTexture(key,path,callback) {
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET',path,true);
+    xhr.responseType = "blob";
+
+    let image = new Image();
+    let texture = new Texture(key,image);
+
+    this._textures[key] = texture;
+
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState == XMLHttpRequest.DONE) {
+        texture.load(xhr.response);
+        typeof callback === 'function' && callback(texture);
+      }
+    }
+
+    xhr.send();
+
+    return key;
+
+    // return key;
   }
 
   createGame(g) {
@@ -511,6 +557,21 @@ class Raycaster {
         }
       }
     });
+  }
+}
+
+Raycaster.ObjectFactory = class {
+  constructor(raycaster) {
+    this.raycaster = raycaster;
+  }
+  planarObject(...args) {
+    return new PlanarObject(this.raycaster,...args);
+  }
+  wall(...args) {
+    return new Wall(this.raycaster,...args);
+  }
+  entity(...args) {
+    return new Wall(this.raycaster,...args);
   }
 }
 
