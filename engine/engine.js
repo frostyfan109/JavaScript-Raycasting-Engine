@@ -62,7 +62,7 @@ class TextureData {
     this.frames = [];
     this.loaded = false;
   }
-  load(data) {
+  load(data,options={}) {
     return new Promise((resolve,reject) => {
       let url = URL.createObjectURL(data);
       if (/.*\.gif/.test(this.path)) {
@@ -72,6 +72,15 @@ class TextureData {
           let arrayBuffer = reader.result;
           let gif = new GIF(arrayBuffer);
           let frames = gif.decompressFrames(true);
+          if ("alpha" in options && !options.alpha) {
+            frames.forEach(f => {
+              for (let i=0;i<f.patch.length;i++) {
+                if (f.patch[i] === 0) {
+                  f.patch[i] = 255;
+                }
+              }
+            });
+          }
           this.frames.push(...frames.map(f => GIFFrame(f)));
           this.loaded = true;
           URL.revokeObjectURL(url);
@@ -139,6 +148,8 @@ class Texture {
           this.elapsed = 0;
           this.playNextFrame();
         }
+        this.prevTime = currentTime;
+
       }
     }
   }
@@ -200,7 +211,7 @@ class PlanarObject extends Phaser.Line {
       }
     }
     if (this.options.texture instanceof String || typeof this.options.texture === 'string') {
-      this.options.texture = raycaster.create.texture(raycaster.getTexture(this.options.texture));
+      this.options.texture = raycaster.create.texture(raycaster.getTextureData(this.options.texture));
     }
   }
   update() {
@@ -574,11 +585,23 @@ class Raycaster {
     return key;
   }
 
-  getTexture(key) {
+  getTextureData(key) {
     return this._textures[key];
   }
 
-  loadTexture(key,path,callback) {
+  loadTexture(key,path,options={},callback=null) {
+    /*
+    Loads a texture into the cache.
+
+    @param {String} key - Key stored in cache to fetch TextureData
+    @param {String} path - File path or URI that is loaded as a texture
+    @param {Object} options - Array of additional arguments
+    @param {Boolean} options.alpha - (ONLY SUPPORTS .GIF) If false, the alpha layer of the .gif will be removed
+    @param {function(TextureData)} callback - Called when the texture finishes loading
+
+    @returns {TextureData} - Cached reference to texture which can be used to instantiate a texture
+      NOTE: When instantiating a texture, it is recommended to use Raycaster::create::texture(String key) as it is more concise, although there is no practical difference.
+    */
     let xhr = new XMLHttpRequest();
     xhr.open('GET',path,true);
     xhr.responseType = "blob";
@@ -589,7 +612,7 @@ class Raycaster {
 
     xhr.onreadystatechange = () => {
       if (xhr.readyState == XMLHttpRequest.DONE) {
-        texture.load(xhr.response).then(() => {
+        texture.load(xhr.response,options).then(() => {
           if (typeof callback === 'function') {
             callback(texture);
           }
