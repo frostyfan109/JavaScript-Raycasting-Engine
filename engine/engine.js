@@ -8,6 +8,19 @@ Number.prototype.clamp = function(min, max) {
   return Math.min(Math.max(this, min), max);
 }
 
+loadScript('https://raw.githubusercontent.com/matt-way/gifuct-js/master/dist/gifuct-js.min.js');
+
+function loadScript(src) {
+  let xhr = new XMLHttpRequest();
+  xhr.open('GET',src,false);
+  xhr.send();
+
+  let script = document.createElement('script');
+  script.type = 'text/javascript'
+  script.text = xhr.responseText;
+  document.getElementsByTagName('head')[0].appendChild(script);
+}
+
 function rgbToHex(r,g,b) {
   return ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
 }
@@ -27,26 +40,118 @@ class Color {
   }
 }
 
-class Texture {
-  constructor(key,image) {
+function GIFFrame(frame) {
+  let c = document.createElement('canvas');
+  c.width = frame.dims.width;
+  c.height = frame.dims.height;
+  let ctx = c.getContext('2d');
+  let imageData = ctx.createImageData(c.width,c.height);
+  imageData.data.set(frame.patch);
+  ctx.putImageData(imageData,0,0);
+
+  let img = new Image();
+  img.src = c.toDataURL();
+  img.frameLength = frame.delay;
+  return img;
+}
+
+class TextureData {
+  constructor(key,path) {
     this.key = key;
-    this.image = image;
+    this.path = path;
+    this.frames = [];
     this.loaded = false;
   }
   load(data) {
     return new Promise((resolve,reject) => {
-      this.image.src = URL.createObjectURL(data);
-      this.image.onload = () => {
-        this.loaded = true;
-        resolve();
+      let url = URL.createObjectURL(data);
+      if (/.*\.gif/.test(this.path)) {
+        //gif
+        let reader = new FileReader();
+        reader.onload = () => {
+          let arrayBuffer = reader.result;
+          let gif = new GIF(arrayBuffer);
+          let frames = gif.decompressFrames(true);
+          this.frames.push(...frames.map(f => GIFFrame(f)));
+          this.loaded = true;
+          URL.revokeObjectURL(url);
+          resolve();
+        }
+        reader.readAsArrayBuffer(data);
       }
-      this.image.onerror = () => {
-        this.loaded = true;
-        reject(new Error("Failed to load texture '"+this.key+"'"));
+      else if (/.*(\.mp4|\.m4a|\.m4p|\.m4b|\.m4r|\.m4v)/.test(this.path)) {
+        //mp4
+        let video = document.createElement("video");
+        video.src = url;
+        video.autoplay = true;
+        video.loop = true;
+        video.onloadedmetadata = () => {
+          this.loaded = true;
+          video.width = video.videoWidth;
+          video.height = video.videoHeight;
+          // document.body.appendChild(video);
+          resolve();
+        }
+        this.frames.push(video);
+        URL.revokeObjectURL(url);
+
       }
-      URL.revokeObjectURL(data);
+      else {
+        let image = new Image();
+        image.src = url;
+        image.onload = () => {
+          this.loaded = true;
+          resolve();
+        }
+        image.onerror = () => {
+          this.loaded = true;
+          reject(new Error("Failed to load texture '"+this.key+"'"));
+        }
+        this.frames.push(image);
+        URL.revokeObjectURL(url);
+      }
     });
   }
+}
+
+class Texture {
+  constructor(textureData) {
+    this.textureData = textureData;
+    this.key = textureData.key;
+    this.path = textureData.path;
+    this.frames = textureData.frames;
+    this._currentFrame = 0;
+    this.elapsed = 0;
+    this.prevTime = null;
+  }
+  update() {
+    let currentFrame = this.getCurrentFrame();
+    // console.log(this.frames);
+    if (this.textureData.loaded && currentFrame.frameLength !== undefined) {
+      let currentTime = Date.now();
+      if (this.prevTime === null) {
+        this.prevTime = currentTime;
+      }
+      else {
+        let elapsed = currentTime - this.prevTime;
+        this.elapsed += elapsed;
+        if (this.elapsed >= currentFrame.frameLength) {
+          this.elapsed = 0;
+          this.playNextFrame();
+        }
+      }
+    }
+  }
+  playNextFrame() {
+    this._currentFrame++;
+    if (this._currentFrame >= this.frames.length) {
+      this._currentFrame = 0;
+    }
+  }
+  getCurrentFrame() {
+    return this.frames[this._currentFrame];
+  }
+
 }
 
 class Ray extends Phaser.Line {
@@ -80,6 +185,10 @@ class PlanarObject extends Phaser.Line {
     super(x,y,x2,y2);
     this.raycaster = raycaster;
     this.h = height;
+
+    this.updateFrame = null;
+    this.renderFrame = null;
+
     this.options = {
       texture:null,
       color:new Color(255,255,255,1),
@@ -90,12 +199,18 @@ class PlanarObject extends Phaser.Line {
         this.options[key] = options[key];
       }
     }
+    if (this.options.texture instanceof String || typeof this.options.texture === 'string') {
+      this.options.texture = raycaster.create.texture(raycaster.getTexture(this.options.texture));
+    }
   }
   update() {
     //Called on PlanarObject every update loop - should be overloaded to add additional functionality to custom objects
+    this.options.texture !== null && this.options.texture.update();
+    typeof this.updateFrame === 'function' && this.updateFrame();
   }
   render() {
     //Called on PlanarObject every render loop - should be overloaded to add any render logic that would be contained within the PLanarObject::update method
+    typeof this.renderFrame === 'function' && this.renderFrame();
   }
 }
 
@@ -267,6 +382,12 @@ class Entity extends PlanarObject {
     let ctx = game.canvas.getContext('2d');
     let points = [];
     let renderedObjects = new Set();
+    let drawTimes = [];
+    let drawColumn = (column,color) => {
+      ctx.beginPath();
+      ctx.fillStyle = color.toCSSString();
+      ctx.fillRect(column.x,column.y,column.width,column.height);
+    }
     this.rays.forEach((ray,i) => {
       let collisions = ray.collisions.slice().sort((c1,c2) => Math.sqrt((c2.p.x-ray.origin.x)**2 + (c2.p.y-ray.origin.y)**2) - Math.sqrt((c1.p.x-ray.origin.x)**2 + (c1.p.y-ray.origin.y)**2));
       if (!Raycaster.VARIABLE_HEIGHT) {
@@ -318,26 +439,27 @@ class Entity extends PlanarObject {
           height //height
         );
 
-
-        ctx.beginPath();
-        ctx.fillStyle = color.toCSSString();
-        ctx.fillRect(column.x,column.y,column.width,column.height);
         if (texture !== null) {
           // let textureData = game.cache.getImage(texture);
-          let textureData = this.raycaster.getTexture(texture).image;
+          let textureData = texture;
           // let textureX = textureData.width - Math.floor(column.x*textureData.width) - 1;
           let columnX = column.x;
           let columnY = column.y;
           let columnWidth = column.width;
           let columnHeight = column.height;
 
-
-          let image = textureData;
+          let image = textureData.getCurrentFrame();
+          if (image === void 0) {
+            drawColumn(column,color);
+            continue;
+          }
 
           let distanceFromStart = Math.sqrt((collision.x-collisionObject.start.x)**2+(collision.y-collisionObject.start.y)**2);
           let pixelColumn = scale(distanceFromStart,0,collisionObject.length,0,image.width);
           // console.log(image.width,image.height);
           let imageHeight = image.height;
+
+          let t1 = Date.now();
 
           ctx.drawImage(
             image, //image
@@ -351,15 +473,18 @@ class Entity extends PlanarObject {
             column.height //imageScaleHeight
           );
 
+          drawTimes.push(Date.now()-t1);
+
         }
         else {
+          drawColumn(column,color);
         }
         points.push(new Phaser.Line(column.x,column.y,column.x+column.width,column.y+column.height));
 
         // if (collisionObject.options.color.a === 1) {
           // break;
         // }
-      };
+      }
       if (Raycaster.DEBUG_MODE) {
         if (points.length > 0) {
           // game.debug.geom(new Phaser.Line(points[0].start.x,points[0].start.y,points[points.length-1].end.x,points[points.length-1].start.y),"#00ff00");
@@ -372,6 +497,7 @@ class Entity extends PlanarObject {
         });
       }
     });
+    // if (game.time.totalFrames % 60 === 1) console.log(drawTimes.reduce((t,n) => t+n));
     if (Raycaster.DEBUG_MODE) {
       // console.log(renderedObjects.size);
     }
@@ -457,8 +583,7 @@ class Raycaster {
     xhr.open('GET',path,true);
     xhr.responseType = "blob";
 
-    let image = new Image();
-    let texture = new Texture(key,image);
+    let texture = new TextureData(key,path);
 
     this._textures[key] = texture;
 
@@ -629,6 +754,9 @@ Raycaster.ObjectFactory = class {
   }
   entity(...args) {
     return new Wall(this.raycaster,...args);
+  }
+  texture(...args) {
+    return new Texture(...args);
   }
 }
 
