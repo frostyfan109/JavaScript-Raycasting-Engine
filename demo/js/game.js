@@ -96,9 +96,9 @@ function generateMap() {
 
 let GameObj = {
   preload: function() {
-    let texture = raycaster.loadTexture('foo','https://media.tenor.com/images/d8a02555155ddd59e60aaa54f01afc11/tenor.gif',{alpha:true},function(texture) {
+    let texture = raycaster.loadTexture('foo','images/test.mp4',{alpha:true},function(texture) {
+      console.log(texture);
     });
-    console.log(texture);
 
 
 

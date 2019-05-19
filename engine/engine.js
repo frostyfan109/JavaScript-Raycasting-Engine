@@ -74,9 +74,11 @@ class TextureData {
           let frames = gif.decompressFrames(true);
           if ("alpha" in options && !options.alpha) {
             frames.forEach(f => {
-              for (let i=0;i<f.patch.length;i++) {
-                if (f.patch[i] === 0) {
-                  f.patch[i] = 255;
+              if (f.disposalType === 1) {
+                for (let i=0;i<f.patch.length;i++) {
+                  if (f.patch[i] === 0) {
+                    f.patch[i] = 0;
+                  }
                 }
               }
             });
@@ -99,10 +101,10 @@ class TextureData {
           video.width = video.videoWidth;
           video.height = video.videoHeight;
           // document.body.appendChild(video);
+          URL.revokeObjectURL(url);
           resolve();
         }
         this.frames.push(video);
-        URL.revokeObjectURL(url);
 
       }
       else {
@@ -110,14 +112,15 @@ class TextureData {
         image.src = url;
         image.onload = () => {
           this.loaded = true;
+          URL.revokeObjectURL(url);
           resolve();
         }
         image.onerror = () => {
           this.loaded = true;
           reject(new Error("Failed to load texture '"+this.key+"'"));
+          URL.revokeObjectURL(url);
         }
         this.frames.push(image);
-        URL.revokeObjectURL(url);
       }
     });
   }
@@ -596,7 +599,7 @@ class Raycaster {
     @param {String} key - Key stored in cache to fetch TextureData
     @param {String} path - File path or URI that is loaded as a texture
     @param {Object} options - Array of additional arguments
-    @param {Boolean} options.alpha - (ONLY SUPPORTS .GIF) If false, the alpha layer of the .gif will be removed
+    @param {Boolean} options.alpha - (ONLY SUPPORTS .GIFS WITH FRAMES OF DISPOSAL TYPE 1) If false, the alpha layer of the .gif will be removed
     @param {function(TextureData)} callback - Called when the texture finishes loading
 
     @returns {TextureData} - Cached reference to texture which can be used to instantiate a texture
