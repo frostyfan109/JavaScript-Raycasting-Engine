@@ -72,9 +72,9 @@ class Player extends Entity {
 class RotatingWall extends Wall {
   constructor(raycaster,x,y,x2,y2,height,options={}) {
     super(raycaster,x,y,x2,y2,height,options);
-  }
-  update() {
-    // this.rotate((3).toRad());
+    this.updateFrame = () => {
+      this.rotate((3).toRad());
+    }
   }
 }
 
@@ -83,10 +83,11 @@ function generateMap() {
     raycaster.create.wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)}),
     raycaster.create.wall(200,400,40,200,1,{texture:'foo',color:new Color(0,255,0,.5)}),
 
-    new RotatingWall(raycaster,200,5,225,185,1.25,{color:new Color(210,210,0,.5)}),
-    new RotatingWall(raycaster,400,5,225,185,1,{color:new Color(230,230,0,1)}),
-    new RotatingWall(raycaster,500,50,400,185,1,{color:new Color(255,255,0,.8)}),
-    new RotatingWall(raycaster,200,5,600,185,1,{color:new Color(255,255,0,1)})
+    raycaster.create.wall(200,5,225,185,1.25,{color:new Color(210,210,0,.5)}),
+    raycaster.create.wall(400,5,225,185,1,{color:new Color(230,230,0,1)}),
+    raycaster.create.wall(500,50,400,185,1,{color:new Color(255,255,0,.8)}),
+    new RotatingWall(raycaster,-200,5,0,5,1,{color:new Color(255,255,0,1)}),
+    new RotatingWall(raycaster,-200,400,-100,150,1,{texture:'foo2',color:new Color(255,255,0,1)})
 
 
 
@@ -96,9 +97,10 @@ function generateMap() {
 
 let GameObj = {
   preload: function() {
-    let texture = raycaster.loadTexture('foo','images/test.mp4',{alpha:true},function(texture) {
+    let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true},function(texture) {
       console.log(texture);
     });
+    raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
 
 
 
@@ -108,6 +110,7 @@ let GameObj = {
     // TODO: add shading? (may be too demanding)
     // TODO: add actual world dimensions (meaning true skybox and ground)
       // TODO: add gridded map helper
+    // TODO: try to optimize gif loading (when async it still stalls phaser)
 
   },
   init: function() {
@@ -157,7 +160,14 @@ let loadState = {
   }
 }
 
-let raycaster = new Raycaster(1000,600,'',undefined,1000,false,{variableHeight:false,assetLoadState:null});
+let raycaster = new Raycaster(1000,600,'',undefined,1000,false,{
+  variableHeight:false,
+  assetLoadState:null,
+  worldBounds: {
+    width:2000,
+    height:2000
+  }
+});
 raycaster.renderFPS = true;
 let player;
 let map;

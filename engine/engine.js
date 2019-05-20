@@ -70,7 +70,9 @@ class TextureData {
         let reader = new FileReader();
         reader.onload = () => {
           let arrayBuffer = reader.result;
+          let time = Date.now();
           let gif = new GIF(arrayBuffer);
+          console.log(Date.now()-time);
           let frames = gif.decompressFrames(true);
           if ("alpha" in options && !options.alpha) {
             frames.forEach(f => {
@@ -165,7 +167,12 @@ class Texture {
   getCurrentFrame() {
     return this.frames[this._currentFrame];
   }
+}
 
+class BoundsError extends Error {
+  constructor(...args) {
+    super(...args);
+  }
 }
 
 class Ray extends Phaser.Line {
@@ -181,11 +188,11 @@ class PlanarObject extends Phaser.Line {
   /*
   Native renderable object (the equivalent of a line in the Euclidean plane)
 
-  @param {int} x - Initial starting x-axis coordinate
-  @param {int} y - Initial starting y-axis coordinate
-  @param {int} x2 - Initial ending x-axis coordinate
-  @param {int} y2 - Initial ending y-axis coordinate
-  @param {int} height - Initial height of object (relative to the projected height of the object)
+  @param {number} x - Initial starting x-axis coordinate
+  @param {number} y - Initial starting y-axis coordinate
+  @param {number} x2 - Initial ending x-axis coordinate
+  @param {number} y2 - Initial ending y-axis coordinate
+  @param {number} height - Initial height of object (relative to the projected height of the object)
   @param {Object} [options={}] - Additional PlanarObject options
   @param {String} [options.texture=null] - Image key referencing the cached texture (must be preloaded into the cache)
   @param {Color} [options.color=new Color(255,255,255,1)] - Color object of the object (given a texture is not present)
@@ -215,6 +222,17 @@ class PlanarObject extends Phaser.Line {
     }
     if (this.options.texture instanceof String || typeof this.options.texture === 'string') {
       this.options.texture = raycaster.create.texture(raycaster.getTextureData(this.options.texture));
+    }
+
+    let error = new BoundsError("PlanarObject instantiated outside of world bounds");
+    if (
+      (raycaster.worldWidth !== null && Math.min(this.start.x,this.end.x) < 0) ||
+      (raycaster.worldWidth !== null && Math.max(this.start.x,this.end.x) > raycaster.worldWidth) ||
+      (raycaster.worldHeight !== null && Math.min(this.start.y,this.end.y) < 0) ||
+      (raycaster.worldHeight !== null && Math.max(this.start.y,this.end.y) > raycaster.worldHeight)
+    )
+    {
+      throw error;
     }
   }
   update() {
@@ -270,22 +288,22 @@ class Entity extends PlanarObject {
   /*
   Native renderable object with a camera and built-in movement functionality
 
-  @param {int} x - Initial x-axis coordinate
-  @param {int} y - Initial y-axis coordinate
-  @param {int} width - Width of the Entity
-  @param {int} height - Height of the Entity
+  @param {number} x - Initial x-axis coordinate
+  @param {number} y - Initial y-axis coordinate
+  @param {number} width - Width of the Entity
+  @param {number} height - Height of the Entity
   @param {Boolean} hasCamera - When false, the Entity will cast out 0 rays
   @param {Object} data - Data regarding the behavior of the Entity
-  @param {int} data.fov - Fov in degrees of Entity (<=0 if the Entity does not cast rays)
-  @param {int} data.speed - Speed of Entity in pixels per (second squared)
-  @param {int} data.lookSpeed - Speed at which Entity turns in degrees/radians per second squared (varies depending on version of Phaser)
+  @param {number} data.fov - Fov in degrees of Entity (<=0 if the Entity does not cast rays)
+  @param {number} data.speed - Speed of Entity in pixels per (second squared)
+  @param {number} data.lookSpeed - Speed at which Entity turns in degrees/radians per second squared (varies depending on version of Phaser)
   @param {Phaser.Game} [game=null] - Instance of game that the Entity will store for use when rendering and performing other operations
     Entity::setupMouse(Phaser.Game game) must be called before the mouse will function if no game instance is passed to the Entity
   @param {Object} [options={}] - Additional PLanarObject options
   @param {String} options.color - Color object of the Entity (given a texture is not present)
   @param {Boolean} options.render - Boolean regarding whether or not the Entity will be rendered
   @param {Boolean} [options.useMouse=false] - Boolean regarding whether or not the object will hook into mouse on instantiation
-  @param {int} [angle=0] - Initial angle that the Entity faces
+  @param {number} [angle=0] - Initial angle that the Entity faces
   */
   constructor(raycaster,x,y,width,height,hasCamera,data,game=null,options={useMouse:false},angle=0) {
     super(raycaster,x,y,x+width,y,height,options);
@@ -526,22 +544,26 @@ class Raycaster {
   /*
   Main class used to perform update logic and handle the game state
 
-  @param {int} width - Width in pixels of game instances
-  @param {int} height - Height in pixels of game instances
+  @param {number} width - Width in pixels of game instances
+  @param {number} height - Height in pixels of game instances
   @param {string | HTMlElement} parent - Parent element that game instances will be created within
-  @param {int} [renderDistance=100000] - Max length in pixels of rays that Entities cast out
+  @param {number} [renderDistance=100000] - Max length in pixels of rays that Entities cast out
     Has infinitesimal effect on performance
-  @param {int} [totalRays=null] - Total amount of rays that are cast out by an Entity
+  @param {number} [totalRays=null] - Total amount of rays that are cast out by an Entity
     Recommended to be left as null as it uses it will use the width of the game instances
     Can be reduced or increased to increase or reduce fps respectively
   @param {Object} [options={}] - Additional optional parameters to speed up initialization of object
+  @param {Object} [options.worldBounds=null] - If not null, the world will have defined boundaries. Required in order to use the map creator.
+  @param {number} [options.worldBounds.width] - Width of world
+  @param {number} [options.worldBounds.height] - Height of world
   @param {Boolean} [options.variableHeight=false] - Sets the global, Raycaster.VARIABLE_HEIGHT, on instantiation
     Must be set in order for variable height to render properly or else taller objects will not be rendered when behind shorter ones
     // NOTE: Variable height results in some loss of performance
   @param {Phaser.State | null} [options.assetLoadState=null] - Loads all assets synchronously before proceeding to the preload state. If null, loads assets asynchronously.
   */
-  constructor(width,height,parent,renderDistance=1e7,totalRays=null,debug=false,options={}) {
+  constructor(canvasWidth,canvasHeight,parent,renderDistance=1e7,totalRays=null,debug=false,options={}) {
     this.options = {
+      worldBounds:null,
       variableHeight:false,
       assetLoadState:null
     }
@@ -553,7 +575,7 @@ class Raycaster {
     Entity.RENDER_DISTANCE = renderDistance;
     Raycaster.VARIABLE_HEIGHT = this.options.variableHeight;
     Raycaster.DEBUG_MODE = debug;
-    Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? width : totalRays;
+    Raycaster.TOTAL_RAYS = typeof totalRays === "undefined" || totalRays === null || totalRays === undefined ? canvasWidth : totalRays;
 
 
     this.create = new Raycaster.ObjectFactory(this);
@@ -561,8 +583,10 @@ class Raycaster {
     this.assetLoadState = this.options.assetLoadState;
 
     this.renderFPS = debug ? true : false;
-    this.instanceWidth = width;
-    this.instanceHeight = height;
+    this.worldWidth = options.worldBounds === null ? null : options.worldBounds.width;
+    this.worldHeight = options.worldBounds === null ? null : options.worldBounds.height;
+    this.instanceWidth = canvasWidth;
+    this.instanceHeight = canvasHeight;
     this.instanceParent = parent;
     this.gameInstances = [];
     this.objects = [];
