@@ -1,4 +1,4 @@
-class Player extends Entity {
+class Player extends Raycaster.Entity {
   constructor(raycaster,g,x,y) {
     let [width,height] = [25,25];
     let angle = 90;
@@ -7,7 +7,6 @@ class Player extends Entity {
       x,
       y,
       width,
-      height,
       true,
       {
         fov:100,
@@ -15,7 +14,7 @@ class Player extends Entity {
         lookSpeed:200,
       },
       g,
-      {useMouse:false},
+      {height:height, useMouse:false},
       angle
     );
     this.keys = {
@@ -30,9 +29,9 @@ class Player extends Entity {
     };
 
     this.renderFrame = () => {
-      this.renderGround(this.game);
-      this.renderSky(this.game);
-      this.renderView(this.game);
+      this.renderGround();
+      this.renderSky();
+      this.renderView();
     }
   }
   handleInput() {
@@ -49,29 +48,29 @@ class Player extends Entity {
       this.move(-1,0);
     }
     if (this.keys.left.isDown) {
-      this.turn(-1,Entity.KEYBOARD_TURN_MULT);
+      this.turn(-1,Raycaster.Entity.KEYBOARD_TURN_MULT);
     }
     if (this.keys.right.isDown) {
-      this.turn(1,Entity.KEYBOARD_TURN_MULT);
+      this.turn(1,Raycaster.Entity.KEYBOARD_TURN_MULT);
     }
     if (this.keys.up.isDown) {
-      this.turn(0,Entity.KEYBOARD_TURN_MULT);
+      this.turn(0,Raycaster.Entity.KEYBOARD_TURN_MULT);
     }
     if (this.keys.down.isDown) {
-      this.turn(0,Entity.KEYBOARD_TURN_MULT);
+      this.turn(0,Raycaster.Entity.KEYBOARD_TURN_MULT);
     }
   }
 
-  mouseMove(game) {
-    let moveX = game.input.mouse.event.movementX;
-    let moveY = game.input.mouse.event.movementY;
-    this.turn(moveX,Entity.MOUSE_TURN_MULT);
+  mouseMove() {
+    let moveX = this.game.input.mouse.event.movementX;
+    let moveY = this.game.input.mouse.event.movementY;
+    this.turn(moveX,Raycaster.Entity.MOUSE_TURN_MULT);
   }
 }
 
-class RotatingWall extends Wall {
-  constructor(raycaster,x,y,x2,y2,height,options={}) {
-    super(raycaster,x,y,x2,y2,height,options);
+class RotatingWall extends Raycaster.Wall {
+  constructor(raycaster,x,y,x2,y2,options={}) {
+    super(raycaster,x,y,x2,y2,options);
     this.updateFrame = () => {
       this.rotate((3).toRad());
     }
@@ -80,14 +79,14 @@ class RotatingWall extends Wall {
 
 function generateMap() {
   let map = [
-    raycaster.create.wall(300,200,40,200,1,{texture:'foo',color:new Color(50,50,50,1)}),
-    raycaster.create.wall(200,400,40,200,1,{texture:'foo',color:new Color(0,255,0,.5)}),
+    raycaster.create.wall(300,200,40,200,{texture:'foo',color:new Raycaster.Color(50,50,50,1)}),
+    raycaster.create.wall(200,400,40,200,{texture:'foo',color:new Raycaster.Color(0,255,0,.5)}),
 
-    raycaster.create.wall(200,5,225,185,1.25,{color:new Color(210,210,0,.5)}),
-    raycaster.create.wall(400,5,225,185,1,{color:new Color(230,230,0,1)}),
-    raycaster.create.wall(500,50,400,185,1,{color:new Color(255,255,0,.8)}),
-    new RotatingWall(raycaster,-200,5,0,5,1,{color:new Color(255,255,0,1)}),
-    new RotatingWall(raycaster,-200,400,-100,150,1,{texture:'foo2',color:new Color(255,255,0,1)})
+    raycaster.create.wall(200,5,225,185,{height:1.25,color:new Raycaster.Color(210,210,0,.5)}),
+    raycaster.create.wall(400,5,225,185,{color:new Raycaster.Color(230,230,0,1)}),
+    raycaster.create.wall(500,50,400,185,{color:new Raycaster.Color(255,255,0,.8)}),
+    new RotatingWall(raycaster,100,5,0,5,{color:new Raycaster.Color(255,255,0,1)}),
+    new RotatingWall(raycaster,100,700,400,500,{texture:'foo2',color:new Raycaster.Color(255,255,0,1)})
 
 
 
@@ -117,9 +116,27 @@ let GameObj = {
     raycaster.init();
   },
   create: function() {
-    map = generateMap();
+    // map = generateMap();
+    let map = Raycaster.MapBuilder.build(
+      raycaster,
+      [
+        [
+        [[0, Raycaster.Wall, {color:new Raycaster.Color(255,0,0,.5)}], 0, 0],
+        [0, 0, 0],
+        [0, 0, 0]
+        ],
+        {
+          0: {
+            object: Raycaster.WallBlock,
+            arguments: [Raycaster.Wall,{color:new Raycaster.Color(255,255,0,.5)}]
+          }
+        }
+      ],
+      3,
+      3
+    );
 
-    player = new Player(raycaster,game,50,50);
+    player = new Player(raycaster,game,250,250);
     raycaster.addGameObject(player);
     raycaster.addGameObjects(map);
 
@@ -160,12 +177,12 @@ let loadState = {
   }
 }
 
-let raycaster = new Raycaster(1000,600,'',undefined,1000,false,{
+let raycaster = new Raycaster.Engine(1000,600,'',undefined,500,false,{
   variableHeight:false,
   assetLoadState:null,
   worldBounds: {
-    width:2000,
-    height:2000
+    width:500,
+    height:500
   }
 });
 raycaster.renderFPS = true;
