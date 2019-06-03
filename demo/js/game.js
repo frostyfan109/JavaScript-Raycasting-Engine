@@ -11,6 +11,7 @@ class Player extends Raycaster.Entity {
       {
         fov:100,
         speed:200,
+        strafeSpeed:200,
         lookSpeed:200,
       },
       g,
@@ -26,6 +27,7 @@ class Player extends Raycaster.Entity {
       right:game.input.keyboard.addKey(Phaser.Keyboard.RIGHT),
       up:game.input.keyboard.addKey(Phaser.Keyboard.UP),
       down:game.input.keyboard.addKey(Phaser.Keyboard.DOWN),
+      shift:game.input.keyboard.addKey(Phaser.Keyboard.SHIFT)
     };
 
     this.renderFrame = () => {
@@ -35,17 +37,20 @@ class Player extends Raycaster.Entity {
     }
   }
   handleInput() {
+    let mult = 1;
+    if (this.keys.shift.isDown) mult += Player.SHIFT_MULT;
+
     if (this.keys.w.isDown) {
-      this.move(0,1);
+      this.move(0,1,mult);
     }
     if (this.keys.a.isDown) {
-      this.move(1,0);
+      this.move(1,0,mult);
     }
     if (this.keys.s.isDown) {
-      this.move(0,-1);
+      this.move(0,-1,mult);
     }
     if (this.keys.d.isDown) {
-      this.move(-1,0);
+      this.move(-1,0,mult);
     }
     if (this.keys.left.isDown) {
       this.turn(-1,Raycaster.Entity.KEYBOARD_TURN_MULT);
@@ -59,6 +64,12 @@ class Player extends Raycaster.Entity {
     if (this.keys.down.isDown) {
       this.turn(0,Raycaster.Entity.KEYBOARD_TURN_MULT);
     }
+    this.handleCollision();
+  }
+
+  preUpdate() {
+    super.preUpdate();
+    this.handleInput();
   }
 
   mouseMove() {
@@ -67,6 +78,8 @@ class Player extends Raycaster.Entity {
     this.turn(moveX,Raycaster.Entity.MOUSE_TURN_MULT);
   }
 }
+
+Player.SHIFT_MULT = 1/2;
 
 class RotatingWall extends Raycaster.Wall {
   constructor(raycaster,x,y,x2,y2,options={}) {
@@ -96,10 +109,10 @@ function generateMap() {
 
 let GameObj = {
   preload: function() {
-    let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true},function(texture) {
+    /*let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true},function(texture) {
       console.log(texture);
     });
-    raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
+    raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');*/
 
 
 
@@ -110,6 +123,7 @@ let GameObj = {
     // TODO: add actual world dimensions (meaning true skybox and ground)
       // TODO: add gridded map helper
     // TODO: try to optimize gif loading (when async it still stalls phaser)
+    // TODO: add minimap
 
   },
   init: function() {
@@ -121,26 +135,41 @@ let GameObj = {
       raycaster,
       [
         [
-        [[0, Raycaster.Wall, {color:new Raycaster.Color(255,0,0,.5)}], 0, 0],
-        [0, 0, 0],
-        [0, 0, 0]
+        [0, 0, 0, 0, 0, 0],
+        [0, 1, 2, 3, 1, 0],
+        [0, 2, 0, 0, 2, 0],
+        [0, 3, 0, 0, 3, 0],
+        [0, 1, 0, 0, 1, 0],
+        [0, 0, 0, 0, 0, 0]
         ],
         {
-          0: {
-            object: Raycaster.WallBlock,
-            arguments: [Raycaster.Wall,{color:new Raycaster.Color(255,255,0,.5)}]
+          0: null,
+          1: {
+            object: Raycaster.wallBlock,
+            arguments: [Raycaster.Wall,{color:new Raycaster.Color(255,255,0,1)}]
+          },
+          2: {
+            object: Raycaster.wallBlock,
+            arguments: [Raycaster.Wall,{color:new Raycaster.Color(0,255,0,1)}]
+          },
+          3: {
+            object: Raycaster.wallBlock,
+            arguments: [Raycaster.Wall,{color:new Raycaster.Color(0,255,255,1)}]
           }
         }
       ],
-      3,
-      3
+      6,
+      6
     );
 
-    player = new Player(raycaster,game,250,250);
+    player = new Player(raycaster,game,50,50);
     raycaster.addGameObject(player);
     raycaster.addGameObjects(map);
 
+    raycaster.debugObjects.push(player);
+
     raycaster.start();
+
 
 
 
@@ -149,7 +178,6 @@ let GameObj = {
   },
   update: function() {
     raycaster.update();
-    player.handleInput();
   },
   render: function() {
   }
@@ -181,8 +209,8 @@ let raycaster = new Raycaster.Engine(1000,600,'',undefined,500,false,{
   variableHeight:false,
   assetLoadState:null,
   worldBounds: {
-    width:500,
-    height:500
+    width:1000,
+    height:1000
   }
 });
 raycaster.renderFPS = true;

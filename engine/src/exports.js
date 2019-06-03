@@ -2,7 +2,7 @@ import Raycaster from './engine';
 import { Color, MapBuilder } from './util';
 import { Texture } from './texture';
 import {
-  PlanarObject, Entity, Wall, WallBlock,
+  PlanarObject, Entity, Wall, wallBlock,
 } from './objects';
 
 export {
@@ -10,7 +10,7 @@ export {
   Texture,
   MapBuilder,
   Wall,
-  WallBlock,
+  wallBlock as constructWallBlock,
   PlanarObject,
   Entity,
   Color,

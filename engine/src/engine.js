@@ -1,6 +1,6 @@
 import { Texture, TextureData } from './texture';
-import { PlanarObject, Wall, Entity } from './objects';
-import { intersect } from './util';
+import { PlanarObject, Wall, Entity, wallBlock } from './objects';
+import { Color, intersect } from './util';
 
 export default class Raycaster {
   /*
@@ -14,6 +14,7 @@ export default class Raycaster {
   @param {number} [totalRays=null] - Total amount of rays that are cast out by an Entity
     Recommended to be left as null as it uses it will use the width of the game instances
     Can be reduced or increased to increase or reduce fps respectively
+  @param {boolean} [debug=false] - Sets if the debugger is shown.
   @param {Object} [options={}] - Additional optional parameters to speed up initialization of object
   @param {Object} [options.worldBounds=null] - If not null, the world will have defined boundaries. Required in order to use the map creator.
   @param {number} [options.worldBounds.width] - Width of world
@@ -37,14 +38,17 @@ export default class Raycaster {
     this.renderDistance = renderDistance;
     this.variableHeight = this.options.variableHeight;
     this.debugMode = debug;
+
     this.totalRays = typeof totalRays === 'undefined' || totalRays === null || totalRays === undefined ? canvasWidth : totalRays;
+    if (this.totalRays > canvasWidth) throw new Error("Total rays must not exceed canvas width or it results in translucent walls");
 
 
     this.create = new Raycaster.ObjectFactory(this);
 
     this.assetLoadState = this.options.assetLoadState;
 
-    this.renderFPS = !!debug;
+    this.renderFPS = debug;
+    this.debugObjects = [];
     this.worldWidth = options.worldBounds === null ? null : options.worldBounds.width;
     this.worldHeight = options.worldBounds === null ? null : options.worldBounds.height;
     this.instanceWidth = canvasWidth;
@@ -64,6 +68,7 @@ export default class Raycaster {
     } else {
       this.debugInstance.time.advancedTiming = true;
     }
+    this.debugCamera = new Phaser.Camera(this.debugInstance,0,0,this.instanceWidth,this.instanceHeight);
   }
 
   loadImage(key, path) {
@@ -145,6 +150,17 @@ export default class Raycaster {
     }
 
 
+    const { create } = g;
+    g.create = (...args) => {
+      if (this.worldWidth !== null && this.worldHeight !== null) {
+        this.addGameObjects(
+          this.create.wallBlock(0,0,this.worldWidth,this.worldHeight, Wall,{color:new Color(255,255,255,1)})
+        );
+      }
+      create(...args);
+    }
+
+
     const { render } = g;
     g.render = (...args) => {
       // eslint-disable-next-line no-use-before-define
@@ -198,20 +214,16 @@ export default class Raycaster {
 
     this.objects.forEach((obj) => {
       if (obj instanceof Entity) {
-        obj.sprite.body.velocity.x = 0;
-        obj.sprite.body.velocity.y = 0;
-        obj.sprite.body.angularVelocity = 0;
-        obj.rotate(((90).toRad() + obj.sprite.angle.toRad()) - obj.angle);
-        obj.center();
         obj.castRays();
       }
+      obj.preUpdate();
     });
 
-    this.handleRays();
 
     this.objects.forEach((obj) => {
       obj.update();
     });
+    this.handleRays();
   }
 
   handleRays() {
@@ -253,7 +265,19 @@ export default class Raycaster {
               instance.time.advancedTiming = true;
               return;
             }
-            instance.debug.text(instance.time.fps, 25, 25, '#00ff00');
+            let ctx = instance.canvas.getContext('2d');
+            if (ctx !== null) {
+              ctx.font = "20px Arial";
+              ctx.fillStyle = "#000000";
+              ctx.fillText("FPS: "+instance.time.fps, 20, 35);
+
+              ctx.font = "14px Arial";
+              ctx.fillStyle = "#000000";
+              this.debugObjects.forEach((obj, i) => {
+                const objRepr = `${obj.constructor.name}(${Math.round(obj.x)}, ${Math.round(obj.y)})`;
+                ctx.fillText(objRepr, 20, 70+(i*30));
+              });
+            }
           });
         }
       }
@@ -271,6 +295,10 @@ Raycaster.ObjectFactory = function ObjectFactory(raycaster) {
       return new Wall(raycaster, ...args);
     },
 
+    wallBlock(...args) {
+      return wallBlock(raycaster, ...args);
+    },
+
     entity(...args) {
       return new Wall(raycaster, ...args);
     },
@@ -278,6 +306,7 @@ Raycaster.ObjectFactory = function ObjectFactory(raycaster) {
     texture(...args) {
       return new Texture(...args);
     },
+
   };
 };
 

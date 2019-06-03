@@ -7,6 +7,11 @@ export function rgbToHex(r, g, b) {
   ).toString(16).slice(1);
 }
 
+
+/**
+ * Native color class used in engine, in the format rgba.
+ * Note: Alpha is supported, but, when used in large quantities, may result in significant loss of performance.
+ */
 export class Color {
   constructor(r, g, b, a) {
     this.r = r;
@@ -56,10 +61,11 @@ NOTE: This format also inherently supports other data types such as strings inst
 NOTE: Arguments passed to each class reference will go:
   "(raycaster instance, x1, y1, x2, y2, ...args)"
   If the class instance's constructor doesn't comply with this format, you may instead pass in a helper function to construct the instance:
+  // NOTE: This format also be helpful in the instantiation of new arguments every time (instead of reusing the same preinstantiated object)
     [
       0: {
-        helper: function(x1, y1, x2, y2) {
-          return new CustomWall(x1, y1, x2, y2, {texture:'bar'})
+        helper: function(raycaster, x1, y1, x2, y2) {
+          return new CustomWall(raycaster, x1, y1, x2, y2, {texture:'bar'})
         }
       }
     ]
@@ -67,9 +73,9 @@ NOTE: Arguments passed to each class reference will go:
 export const MapBuilder = {
   build(raycaster, dataMap, xDimensions, yDimensions) {
     const map = [];
-    const width = raycaster.worldWidth / xDimensions;
-    const height = raycaster.worldHeight / yDimensions;
+    const height = raycaster.worldHeight / Math.max(yDimensions, dataMap[0].length);
     for (let yInd = 0; yInd < dataMap[0].length; yInd++) {
+      const width = raycaster.worldWidth / Math.max(xDimensions, dataMap[0][yInd].length);
       for (let xInd = 0; xInd < dataMap[0][yInd].length; xInd++) {
         let type = dataMap[0][yInd][xInd];
         let object;
@@ -81,11 +87,19 @@ export const MapBuilder = {
 
         let args;
 
+        if (typeof type === "undefined" || type === null || type === undefined) {
+          continue;
+        }
+
         if (Array.isArray(type)) {
           [type, ...args] = type;
         }
 
         const data = dataMap[1][type];
+
+        if (typeof data === "undefined" || data === null || data === undefined) {
+          continue;
+        }
 
         if (typeof args === 'undefined') args = Object.prototype.hasOwnProperty.call(data, 'arguments') ? data.arguments : [];
 
