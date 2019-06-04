@@ -1,6 +1,6 @@
 import { Texture, TextureData } from './texture';
 import { PlanarObject, Wall, Entity, wallBlock } from './objects';
-import { Color, intersect } from './util';
+import Color from './color';
 
 export default class Raycaster {
   /*
@@ -16,9 +16,8 @@ export default class Raycaster {
     Can be reduced or increased to increase or reduce fps respectively
   @param {boolean} [debug=false] - Sets if the debugger is shown.
   @param {Object} [options={}] - Additional optional parameters to speed up initialization of object
-  @param {Object} [options.worldBounds=null] - If not null, the world will have defined boundaries. Required in order to use the map creator.
-  @param {number} [options.worldBounds.width] - Width of world
-  @param {number} [options.worldBounds.height] - Height of world
+  @param {number} [options.worldWidth=null] - If not null, the world will have defined width. Required along with options.worldHeight in order to use any map related utilities.
+  @param {number} [options.worldHeight=null] - If not null, the world will have defined height. Required along with options.worldWidth in order to use any map related utilities.
   @param {Boolean} [options.variableHeight=false] - Sets if PlanarObjects not of type Entity may have variable height
     Must be set in order for variable height to render properly or else taller objects will not be rendered when behind shorter ones
     // NOTE: Variable height results in some loss of performance
@@ -26,17 +25,22 @@ export default class Raycaster {
   */
   constructor(canvasWidth, canvasHeight, parent, renderDistance = 1e7, totalRays = null, debug = false, options = {}) {
     this.options = {
-      worldBounds: null,
+      worldWidth: null,
+      worldHeight: null,
       variableHeight: false,
       assetLoadState: null,
     };
-
-    Object.keys(options).forEach((i) => {
-      this.options[i] = options[i];
+    Object.keys(options).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(this.options, key)) {
+        this.options[key] = options[key];
+      }
     });
+    Object.keys(this.options).forEach((key) => {
+      this[key] = this.options[key];
+    });
+    delete this.options;
 
     this.renderDistance = renderDistance;
-    this.variableHeight = this.options.variableHeight;
     this.debugMode = debug;
 
     this.totalRays = typeof totalRays === 'undefined' || totalRays === null || totalRays === undefined ? canvasWidth : totalRays;
@@ -45,12 +49,8 @@ export default class Raycaster {
 
     this.create = new Raycaster.ObjectFactory(this);
 
-    this.assetLoadState = this.options.assetLoadState;
-
     this.renderFPS = debug;
     this.debugObjects = [];
-    this.worldWidth = options.worldBounds === null ? null : options.worldBounds.width;
-    this.worldHeight = options.worldBounds === null ? null : options.worldBounds.height;
     this.instanceWidth = canvasWidth;
     this.instanceHeight = canvasHeight;
     this.instanceParent = parent;
@@ -213,40 +213,20 @@ export default class Raycaster {
     if (!this.running) return;
 
     this.objects.forEach((obj) => {
-      if (obj instanceof Entity) {
-        obj.castRays();
-      }
       obj.preUpdate();
-    });
-
-
-    this.objects.forEach((obj) => {
       obj.update();
     });
-    this.handleRays();
   }
 
-  handleRays() {
-    this.objects.forEach((obj) => {
-      if (obj instanceof Entity) {
-        obj.rays.forEach((ray) => {
-          this.objects.forEach((colObj) => {
-            if (colObj === obj || !colObj.options.render) return;
-            const intersection = intersect(ray.start.x, ray.start.y, ray.end.x, ray.end.y, colObj.start.x, colObj.start.y, colObj.end.x, colObj.end.y);
-            if (intersection) ray.collisions.push({ p: intersection, obj: colObj });
-          });
-        });
-      }
-    });
-  }
+
 
   renderDebug() {
     this.objects.forEach((obj) => {
       obj.render();
       if (obj instanceof PlanarObject) {
         if (this.debugMode) {
-          this.debugInstance.debug.geom(obj, obj.options.color.toCSSString());
-          if (obj instanceof Entity) {
+          this.debugInstance.debug.geom(obj, obj.color.toCSSString());
+          if (obj.camera !== null) {
             obj.rays.forEach((ray) => {
               if (obj.drawFov) {
                 this.debugInstance.debug.geom(new Phaser.Line(ray.origin.x, ray.origin.y, ray.end.x, ray.end.y), '#ff0000');

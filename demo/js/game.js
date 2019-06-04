@@ -1,23 +1,14 @@
-class Player extends Raycaster.Entity {
-  constructor(raycaster,g,x,y) {
-    let [width,height] = [25,25];
-    let angle = 90;
-    super(
-      raycaster,
-      x,
-      y,
-      width,
-      true,
-      {
-        fov:100,
-        speed:200,
-        strafeSpeed:200,
-        lookSpeed:200,
-      },
-      g,
-      {height:height, useMouse:false},
-      angle
-    );
+class Player extends Raycaster.PlanarObject {
+  constructor(raycaster,game,x,y) {
+    let width = 100;
+    let height = .5;
+    super(raycaster, x, y, x+width, y, {
+      varHeight: height
+    });
+    this.game = game;
+
+    this.addCamera(game);
+
     this.keys = {
       w:game.input.keyboard.addKey(Phaser.Keyboard.W),
       a:game.input.keyboard.addKey(Phaser.Keyboard.A),
@@ -30,16 +21,28 @@ class Player extends Raycaster.Entity {
       shift:game.input.keyboard.addKey(Phaser.Keyboard.SHIFT)
     };
 
-    this.renderFrame = () => {
-      this.renderGround();
-      this.renderSky();
-      this.renderView();
-    }
+    this.speed = 200;
+    this.strafeSpeed = 200;
+
+  }
+  render() {
+    super.render();
+    this.camera.render();
+    minimap.render();
+  }
+  move(horiz, vert, mult) {
+    const normalSpeed = this.speed * vert * mult;
+    const strafeSpeed = this.strafeSpeed * horiz * mult;
+    const speed = normalSpeed + strafeSpeed;
+    super.move(speed, horiz, this.game.time.elapsed/1000);
+  }
+  turn(horiz, mult) {
+    let angle = horiz * this.camera.turnSpeed * mult * (this.game.time.elapsed/1000);
+    super.turn(angle);
   }
   handleInput() {
     let mult = 1;
-    if (this.keys.shift.isDown) mult += Player.SHIFT_MULT;
-
+    if (this.keys.shift.isDown) mult += SHIFT_MULT;
     if (this.keys.w.isDown) {
       this.move(0,1,mult);
     }
@@ -53,16 +56,16 @@ class Player extends Raycaster.Entity {
       this.move(-1,0,mult);
     }
     if (this.keys.left.isDown) {
-      this.turn(-1,Raycaster.Entity.KEYBOARD_TURN_MULT);
+      this.turn(-1,KEYBOARD_TURN_MULT);
     }
     if (this.keys.right.isDown) {
-      this.turn(1,Raycaster.Entity.KEYBOARD_TURN_MULT);
+      this.turn(1,KEYBOARD_TURN_MULT);
     }
     if (this.keys.up.isDown) {
-      this.turn(0,Raycaster.Entity.KEYBOARD_TURN_MULT);
+      this.turn(0,KEYBOARD_TURN_MULT);
     }
     if (this.keys.down.isDown) {
-      this.turn(0,Raycaster.Entity.KEYBOARD_TURN_MULT);
+      this.turn(0,KEYBOARD_TURN_MULT);
     }
     this.handleCollision();
   }
@@ -75,63 +78,39 @@ class Player extends Raycaster.Entity {
   mouseMove() {
     let moveX = this.game.input.mouse.event.movementX;
     let moveY = this.game.input.mouse.event.movementY;
-    this.turn(moveX,Raycaster.Entity.MOUSE_TURN_MULT);
+    this.turn(moveX,MOUSE_TURN_MULT);
   }
 }
 
-Player.SHIFT_MULT = 1/2;
+MOUSE_TURN_MULT = 1 / 4;
+KEYBOARD_TURN_MULT = 1.25;
+SHIFT_MULT = 1/2;
 
 class RotatingWall extends Raycaster.Wall {
   constructor(raycaster,x,y,x2,y2,options={}) {
     super(raycaster,x,y,x2,y2,options);
-    this.updateFrame = () => {
-      this.rotate((3).toRad());
-    }
   }
-}
-
-function generateMap() {
-  let map = [
-    raycaster.create.wall(300,200,40,200,{texture:'foo',color:new Raycaster.Color(50,50,50,1)}),
-    raycaster.create.wall(200,400,40,200,{texture:'foo',color:new Raycaster.Color(0,255,0,.5)}),
-
-    raycaster.create.wall(200,5,225,185,{height:1.25,color:new Raycaster.Color(210,210,0,.5)}),
-    raycaster.create.wall(400,5,225,185,{color:new Raycaster.Color(230,230,0,1)}),
-    raycaster.create.wall(500,50,400,185,{color:new Raycaster.Color(255,255,0,.8)}),
-    new RotatingWall(raycaster,100,5,0,5,{color:new Raycaster.Color(255,255,0,1)}),
-    new RotatingWall(raycaster,100,700,400,500,{texture:'foo2',color:new Raycaster.Color(255,255,0,1)})
-
-
-
-  ]
-  return map;
 }
 
 let GameObj = {
   preload: function() {
-    /*let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true},function(texture) {
+    let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true},function(texture) {
       console.log(texture);
     });
-    raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');*/
+    raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
 
 
 
-    // TODO: add multidimensional planarobject helper class
-    // TODO: add collision support
-    // TODO: add entity support
-    // TODO: add shading? (may be too demanding)
-    // TODO: add actual world dimensions (meaning true skybox and ground)
-      // TODO: add gridded map helper
+    // TODO: add shading (how?)
     // TODO: try to optimize gif loading (when async it still stalls phaser)
-    // TODO: add minimap
+    // TODO: change to step based - would be far more optimized for variable height and others
 
   },
   init: function() {
     raycaster.init();
   },
   create: function() {
-    // map = generateMap();
-    let map = Raycaster.MapBuilder.build(
+    map = Raycaster.MapBuilder.build(
       raycaster,
       [
         [
@@ -145,16 +124,31 @@ let GameObj = {
         {
           0: null,
           1: {
-            object: Raycaster.wallBlock,
-            arguments: [Raycaster.Wall,{color:new Raycaster.Color(255,255,0,1)}]
+            helper: function(raycaster,x1,y1,x2,y2) {
+              return Raycaster.constructWallBlock(raycaster,x1,y1,x2,y2,Raycaster.Wall,{color:new Raycaster.Color(255,255,0,1),texture:'foo'});
+            }
           },
           2: {
-            object: Raycaster.wallBlock,
-            arguments: [Raycaster.Wall,{color:new Raycaster.Color(0,255,0,1)}]
+            helper: function(raycaster,x1,y1,x2,y2) {
+              return Raycaster.constructWallBlock(raycaster,x1,y1,x2,y2,Raycaster.Wall,{color:new Raycaster.Color(0,255,0,1),texture:'foo2'});
+            }
           },
           3: {
-            object: Raycaster.wallBlock,
-            arguments: [Raycaster.Wall,{color:new Raycaster.Color(0,255,255,1)}]
+            helper: function(raycaster,x1,y1,x2,y2) {
+              return Raycaster.constructWallBlock(raycaster,x1,y1,x2,y2,Raycaster.Wall,{color:new Raycaster.Color(0,255,255,1)});
+            }
+          },
+          4: {
+            helper: function(raycaster,x1,y1,x2,y2) {
+              return new RotatingWall(
+                raycaster,
+                x1,
+                y1,
+                x2,
+                y2,
+                {color:new Raycaster.Color(0,255,255,1)}
+              );
+            }
           }
         }
       ],
@@ -162,9 +156,25 @@ let GameObj = {
       6
     );
 
+
     player = new Player(raycaster,game,50,50);
+
+    const [width, height] = [125, 125];
+    const padding = 10;
+    minimap = new Raycaster.Minimap(player, raycaster.instanceWidth-width-padding, padding, width, height, undefined, undefined, {
+      borderWidth: 3
+    });
+
     raycaster.addGameObject(player);
     raycaster.addGameObjects(map);
+    raycaster.addGameObject(new RotatingWall(
+      raycaster,
+      300,
+      0,
+      200,
+      175,
+      {color:new Raycaster.Color(0,255,255,1)}
+    ));
 
     raycaster.debugObjects.push(player);
 
@@ -208,12 +218,12 @@ let loadState = {
 let raycaster = new Raycaster.Engine(1000,600,'',undefined,500,false,{
   variableHeight:false,
   assetLoadState:null,
-  worldBounds: {
-    width:1000,
-    height:1000
-  }
+  worldWidth: 1000,
+  worldHeight: 1000,
+  variableHeight: true
 });
 raycaster.renderFPS = true;
 let player;
 let map;
+let minimap;
 const game = raycaster.createGame(GameObj);

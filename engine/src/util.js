@@ -1,36 +1,11 @@
-export function rgbToHex(r, g, b) {
-  return (
-    (1 << 24) // eslint-disable-line no-bitwise
-    + (r << 16) // eslint-disable-line no-bitwise
-    + (g << 8) // eslint-disable-line no-bitwise
-    + b
-  ).toString(16).slice(1);
-}
-
-
-/**
- * Native color class used in engine, in the format rgba.
- * Note: Alpha is supported, but, when used in large quantities, may result in significant loss of performance.
- */
-export class Color {
-  constructor(r, g, b, a) {
-    this.r = r;
-    this.g = g;
-    this.b = b;
-    this.a = a;
-  }
-
-  toHex() {
-    return parseInt(rgbToHex(this.r, this.g, this.b), 16);
-  }
-
-  toCSSString() {
-    return `rgba(${this.r},${this.g},${this.b},${this.a})`;
-  }
-}
+import Color from './color';
 
 export function requestPointerLock(game) {
   game.input.mouse.requestPointerLock();
+}
+
+export function scale(num, inMin, inMax, outMin, outMax) {
+  return (num - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
 }
 
 /*
@@ -120,6 +95,74 @@ export const MapBuilder = {
 
   },
 };
+
+/**
+ * Minimap utility class
+ *
+ * @param {PlanarObject} object - The object that the minimap is rendered relative to. May be reassigned at any point.
+ * @param {number} x - X-axis coordinate in which the minimap will be rendered onto the screen;
+ * @param {number} y - Y-axis coordinate in which the minimap will be rendered onto the screen;
+ * @param {number} width - The width of the minimap in pixels.
+ * @param {number} height - The height of the minimap in pixels.
+ * @param {number|null} [viewWidth=null] - The amount of in-game width rendered on the minimap. Default shows the entire map.
+ * @param {number|null} [viewHeight=null] - The amount of in-game height rendered on the minimap. Default shows the entire map.
+ * @param {object} [options={}] - Additional options.
+ * @param {Color} [options.backgroundColor=new Color(80,80,80,1)] - Background color of the Minimap.
+ * @param {Color} [options.borderColor=new Color(50,50,50,1)] - Border color of the Minimap.
+ * @param {number} [options.borderWidth=0] - Width of the Minimap's border.
+ *
+ */
+export class Minimap {
+  constructor(object, x, y, width, height, viewWidth=null, viewHeight=null, options={}) {
+    this.object = object;
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.viewWidth = viewWidth;
+    this.viewHeight = viewHeight;
+
+    this.options = {
+      backgroundColor:new Color(80,80,80,1),
+      borderColor:new Color(50,50,50,1),
+      borderWidth:0
+    };
+    Object.keys(options).forEach((key) => {
+      if (Object.prototype.hasOwnProperty.call(this.options, key)) {
+        this.options[key] = options[key];
+      }
+    });
+    Object.keys(this.options).forEach((key) => {
+      this[key] = this.options[key];
+    });
+    delete this.options;
+  }
+  /**
+   * Method for rendering the minimap onto the screen
+   */
+  render() {
+    let ctx = this.object.game.canvas.getContext('2d');
+    let gameWidth = this.object.raycaster.worldWidth;
+    let gameHeight = this.object.raycaster.worldHeight;
+    if (this.borderWidth !== 0) {
+      ctx.fillStyle = this.borderColor.toCSSString();
+      ctx.fillRect(this.x-this.borderWidth,this.y-this.borderWidth,this.width+(this.borderWidth*2),this.height+(this.borderWidth*2));
+    }
+    ctx.fillStyle = this.backgroundColor.toCSSString();
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    this.object.raycaster.objects.forEach((obj,i) => {
+      let color = obj.color.toCSSString();
+      let startX = this.x + this.width * (obj.start.x / gameWidth);
+      let startY = this.y + this.height * (obj.start.y / gameHeight);
+      let endX = this.x + this.width * (obj.end.x / gameWidth);
+      let endY = this.y + this.height * (obj.end.y / gameHeight);
+      ctx.strokeStyle = color;
+      ctx.moveTo(startX,startY);
+      ctx.lineTo(endX,endY);
+    });
+    ctx.stroke();
+  }
+}
 
 export function intersect(x1, y1, x2, y2, x3, y3, x4, y4) {
   // Check if none of the lines are of length 0
