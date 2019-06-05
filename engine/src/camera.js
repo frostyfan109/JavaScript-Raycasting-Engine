@@ -27,6 +27,7 @@ export default class Camera {
     this.game = game;
     this.fov = typeof fov !== "undefined" ? fov : 100;
     this.turnSpeed = typeof turnSpeed !== "undefined" ? turnSpeed : Math.PI;
+
     this._rays = [];
   }
 
@@ -142,7 +143,7 @@ export default class Camera {
         //    NOTE: Skybox/ground won't work with this method and I don't know a fix. Probably some fairly basic math.
       // Change this.object.varHeight to higher or lower to move on the z-axis.
         // Once at a value > 1, variable height must be enabled for it to render properly.
-        const y = (this.game.world.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (1-this.object.varHeight));
+        const y = (this.game.world.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.z));
         const column = new Phaser.Rectangle(
           x, // x
           y, // y

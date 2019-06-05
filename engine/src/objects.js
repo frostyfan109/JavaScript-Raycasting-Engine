@@ -26,7 +26,7 @@ export class PlanarObject extends Phaser.Line {
     super(x, y, x2, y2);
     this.raycaster = raycaster;
 
-    this.verticalAngle = Math.PI;
+
 
     this.camera = null;
 
@@ -52,6 +52,25 @@ export class PlanarObject extends Phaser.Line {
     if (this.texture instanceof String || typeof this.texture === 'string') {
       this.texture = raycaster.create.texture(raycaster.getTextureData(this.texture));
     }
+
+    // Experimental
+    this.verticalAngle = Math.PI;
+    this.z = .5;
+
+    this.mass = 1;
+    this.velocity = {
+      x: 0,
+      y: 0
+    };
+    this.terminalVelocity = {
+      x: null,
+      y: null
+    };
+    this.friction = {
+      x: 0,
+      y: 0
+    };
+
 
     const error = new BoundsError(`PlanarObject ${this.toString()} instantiated outside of world bounds`);
     if (
@@ -103,12 +122,21 @@ export class PlanarObject extends Phaser.Line {
   }
 
   /**
-   * Turn the PlanarObject.
+   * Turn the PlanarObject horizontally.
    *
    * @param {number} angle  - Sets the angle relative to the current angle in radians.
    */
-  turn(angle) {
+  turnHorizontally(angle) {
     this.rotate(angle);
+  }
+
+  /**
+   * Turn the PlanarObject vertically.
+   *
+   * @param {number} angle  - Sets the angle relative to the current angle in radians.
+   */
+  turnVertically(angle) {
+    this.verticalAngle += angle;
   }
 
   /**
@@ -123,10 +151,11 @@ export class PlanarObject extends Phaser.Line {
   /**
    * Method for moving the PlanarObject
    *
-   * @param {number} speed - Object containing the speed in px/s of the PlanarObject
+   * @param {number} force - Amount of force applied to the PlanarObject
    * @param {number} horiz - Number of value either 1 or -1 to indicate strafing.
+   * @param {number} elapsed - Elapsed time since last frame in milliseconds
    */
-  move(speed, horiz, elapsed) {
+  move(force, horiz, elapsed) {
     let ang = this.angle;
     ang = Math.PI*2 - ang;
     if (horiz === 1) {
@@ -136,9 +165,14 @@ export class PlanarObject extends Phaser.Line {
       ang -= Math.PI * (3/2);
     }
 
-    let x = speed * (Math.sin(ang)) * (elapsed);
-    let y = speed * (Math.cos(ang)) * (elapsed);
-    this.setTo(this.start.x+x,this.start.y+y,this.end.x+x,this.end.y+y);
+    let acceleration = force / this.mass;
+
+    this.velocity.x += acceleration * Math.sin(ang) * (elapsed/1000);
+    this.velocity.y += acceleration * Math.cos(ang) * (elapsed/1000);
+
+    // let x = speed * (Math.sin(ang));
+    // let y = speed * (Math.cos(ang));
+    // this.setTo(this.start.x+x,this.start.y+y,this.end.x+x,this.end.y+y);
   }
 
   handleCollision() {
@@ -232,17 +266,75 @@ export class PlanarObject extends Phaser.Line {
 
   // These methods may be overloaded as long as super method is called
 
-  preUpdate() {
+  /**
+   * Called on PlanarObject every update loop, but before the Raycaster imposes any update logic.
+   * 
+   * @param {number} elapsed - Time delta in milliseconds spanning the beginning of the last frame's update loop to the beginning of the current frame's update loop
+   */
+  preUpdate(elapsed) {
     //Called on PlanarObject every update loop, but before the Raycaster imposes any update logic
   }
 
-  update() {
-    // Called on PlanarObject every update loop, but after the Raycaster imposes any update logic
+  /**
+   * Called on PlanarObject every update loop, but after the Raycaster imposes any update logic.
+   *
+   * @param {number} elapsed - Time delta in milliseconds spanning the beginning of the last frame's update loop to the beginning of the current frame's update loop
+   */
+  update(elapsed) {
     if (this.texture !== null) this.texture.update();
+
+    /* Update position */
+
+    // Apply friction
+    let acc = {
+      x: this.friction.x / this.mass,
+      y: this.friction.y / this.mass
+    };
+    let sign = Math.sign(this.velocity.x);
+    this.velocity.x -= sign * acc.x * (elapsed/1000);
+    if (Math.sign(this.velocity.x) !== sign) {
+      // If went past 0, set to 0.
+      this.velocity.x = 0;
+    }
+    sign = Math.sign(this.velocity.y);
+    this.velocity.y -= sign * acc.y * (elapsed/1000);
+    if (Math.sign(this.velocity.y) !== sign) {
+      // If went past 0, set to 0.
+      this.velocity.y = 0;
+    }
+
+    // Clamp the velocity to ensure that it does not exceed terminal velocity
+    if (this.terminalVelocity.x !== null) {
+      this.velocity.x = this.velocity.x.clamp(-this.terminalVelocity.x, this.terminalVelocity.x);
+    }
+    if (this.terminalVelocity.y !== null) {
+      this.velocity.y = this.velocity.y.clamp(-this.terminalVelocity.y, this.terminalVelocity.y);
+    }
+
+    if (this.velocity.x !== 0 || this.velocity.y !== 0) {
+      let x = this.velocity.x * (elapsed/1000);
+      let y = this.velocity.y * (elapsed/1000);
+      this.setTo(this.start.x+x,this.start.y+y,this.end.x+x,this.end.y+y);
+
+      this.handleCollision();
+    }
+
+    // const gravitationalForce = 200;
+    // let yForce = gravitationalForce + this.yForce;
+    // if (this.yForce !== undefined) {
+    //   this.yForce *= .9;
+    //   this.z -= (yForce) * (elapsed/1000) * (elapsed/1000);
+    //   this.z = Math.max(1/2, this.z);
+    // }
   }
 
-  render() {
-    // Called on PLanarObject every every render loop, but after all update logic. Only called half as frequently as update methods.
+  /**
+   * Called on PLanarObject every every render loop, but after all update logic. Only called half as frequently as update methods.
+   *
+   * @param {number} elapsed - Time delta in milliseconds spanning the beginning of the last frame's update loop to the beginning of the current frame's update loop.
+   *    NOTE: Elapsed remains a constant throughout the frame. It will not differ between each frame-related function.
+   */
+  render(elapsed) {
   }
 
   toString() {

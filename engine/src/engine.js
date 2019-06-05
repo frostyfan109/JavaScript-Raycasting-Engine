@@ -58,6 +58,8 @@ export default class Raycaster {
     this.objects = [];
     this.running = false;
 
+    this.prevTime = Date.now();
+
     this._textures = [];
   }
 
@@ -210,12 +212,19 @@ export default class Raycaster {
   }
 
   update() {
+    const newTime = Date.now();
+    const delta = newTime - this.prevTime;
+    this.prevTime = newTime;
+
+    // Runs time logic still to prevent something like tabbing out from resulting in huge time delta when tabbing back in.
+
     if (!this.running) return;
 
     this.objects.forEach((obj) => {
       obj.preUpdate();
-      obj.update();
+      obj.update(delta);
     });
+
   }
 
 
