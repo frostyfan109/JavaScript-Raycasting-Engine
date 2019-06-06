@@ -29,6 +29,14 @@ export default class Camera {
     this.turnSpeed = typeof turnSpeed !== "undefined" ? turnSpeed : Math.PI;
 
     this._rays = [];
+
+    /* Offsets the axis positions of the camera from the owner object. */
+    // 2d context
+    this.xOffset = 0;
+    this.zOffset = 0;
+    // 3d context
+    // yOffset is at the top of the object
+    this.yOffset = this.object.varHeight;
   }
 
   calculateRayCollision() {
@@ -50,7 +58,7 @@ export default class Camera {
     for (let x = 0; x < this.object.raycaster.totalRays; x++) {
       let angle = Math.atan((x - (this.object.raycaster.totalRays / 2)) / distToProjSurface);
       angle += (this.object.angle.toDeg()+90).toRad();
-      const ray = new Ray(this.object.midPoint().x, this.object.midPoint().y, angle, this.object.raycaster.renderDistance);
+      const ray = new Ray(this.object.midPoint().x + this.xOffset, this.object.midPoint().y + this.zOffset, angle, this.object.raycaster.renderDistance);
       this._rays.push(ray);
     }
   }
@@ -123,7 +131,7 @@ export default class Camera {
 
 
         const rayLen = this._rays.length;
-        const width = (this.game.world.width / rayLen);
+        const width = Math.ceil(this.game.world.width / rayLen);
         // console.log(width);
         const dx = collision.x - ray.origin.x;
         const dy = collision.y - ray.origin.y;
@@ -143,7 +151,7 @@ export default class Camera {
         //    NOTE: Skybox/ground won't work with this method and I don't know a fix. Probably some fairly basic math.
       // Change this.object.varHeight to higher or lower to move on the z-axis.
         // Once at a value > 1, variable height must be enabled for it to render properly.
-        const y = (this.game.world.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.z));
+        const y = (this.game.world.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
         const column = new Phaser.Rectangle(
           x, // x
           y, // y

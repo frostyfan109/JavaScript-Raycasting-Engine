@@ -2,9 +2,9 @@ import Raycaster from './engine';
 import Color from './color';
 import { MapBuilder, Minimap } from './util';
 import { Texture } from './texture';
-import { Camera } from './camera';
+import Camera from './camera';
 import {
-  PlanarObject, Entity, Wall, wallBlock,
+  PlanarObject, Wall, wallBlock,
 } from './objects';
 
 export {
@@ -16,6 +16,5 @@ export {
   Camera,
   wallBlock as constructWallBlock,
   PlanarObject,
-  Entity,
-  Color,
+  Color
 };

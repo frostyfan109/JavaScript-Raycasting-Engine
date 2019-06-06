@@ -44,7 +44,6 @@ export default class Raycaster {
     this.debugMode = debug;
 
     this.totalRays = typeof totalRays === 'undefined' || totalRays === null || totalRays === undefined ? canvasWidth : totalRays;
-    if (this.totalRays > canvasWidth) throw new Error("Total rays must not exceed canvas width or it results in translucent walls");
 
 
     this.create = new Raycaster.ObjectFactory(this);
@@ -84,7 +83,7 @@ export default class Raycaster {
     return this._textures[key];
   }
 
-  loadTexture(key, path, options = {}, callback = null) {
+  async loadTexture(key, path, options = {}) {
     /*
     Loads a texture into the cache.
 
@@ -92,30 +91,15 @@ export default class Raycaster {
     @param {String} path - File path or URI that is loaded as a texture
     @param {Object} options - Array of additional arguments
     @param {Boolean} options.alpha - (ONLY SUPPORTS .GIFS WITH FRAMES OF DISPOSAL TYPE 1) If false, the alpha layer of the .gif will be removed
-    @param {function(TextureData)} callback - Called when the texture finishes loading
 
-    @returns {TextureData} - Cached reference to texture which can be used to instantiate a texture
-      NOTE: When instantiating a texture, it is recommended to use Raycaster::create::texture(String key) as it is more concise, although there is no practical difference.
+    @returns {Promise.<String>} key - Key used to instantiate the texture from the cache.
     */
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', path, true);
-    xhr.responseType = 'blob';
 
-    const texture = new TextureData(key, path);
+    const texture = new TextureData(key);
 
     this._textures[key] = texture;
 
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState === XMLHttpRequest.DONE) {
-        texture.load(xhr.response, options).then(() => {
-          if (typeof callback === 'function') {
-            callback(texture);
-          }
-        });
-      }
-    };
-
-    xhr.send();
+    await texture.load(path, options);
 
     return texture;
 
@@ -236,7 +220,7 @@ export default class Raycaster {
         if (this.debugMode) {
           this.debugInstance.debug.geom(obj, obj.color.toCSSString());
           if (obj.camera !== null) {
-            obj.rays.forEach((ray) => {
+            obj.camera._rays.forEach((ray) => {
               if (obj.drawFov) {
                 this.debugInstance.debug.geom(new Phaser.Line(ray.origin.x, ray.origin.y, ray.end.x, ray.end.y), '#ff0000');
               }
@@ -263,7 +247,7 @@ export default class Raycaster {
               ctx.font = "14px Arial";
               ctx.fillStyle = "#000000";
               this.debugObjects.forEach((obj, i) => {
-                const objRepr = `${obj.constructor.name}(${Math.round(obj.x)}, ${Math.round(obj.y)})`;
+                const objRepr = `${obj.constructor.name}(x: ${Math.round(obj.x)}, z: ${Math.round(obj.y)}, y: ${Math.round(obj.yPos3D)})`;
                 ctx.fillText(objRepr, 20, 70+(i*30));
               });
             }
