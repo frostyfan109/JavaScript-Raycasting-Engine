@@ -9,6 +9,7 @@ export default class Raycaster {
   @param {number} width - Width in pixels of game instances
   @param {number} height - Height in pixels of game instances
   @param {string | HTMlElement} parent - Parent element that game instances will be created within
+  @param {Phaser.State | null} state - State used to manage game instances.
   @param {number} [renderDistance=100000] - Max length in pixels of rays that Entities cast out
     Has infinitesimal effect on performance
   @param {number} [totalRays=null] - Total amount of rays that are cast out by an Entity
@@ -22,13 +23,15 @@ export default class Raycaster {
     Must be set in order for variable height to render properly or else taller objects will not be rendered when behind shorter ones
     // NOTE: Variable height results in some loss of performance
   @param {Phaser.State | null} [options.assetLoadState=null] - Loads all assets synchronously before proceeding to the preload state. If null, loads assets asynchronously.
+  @param {Boolean} [options.automaticallyResize] - Maintains the sizes of game instances in proportion to the window's size.
   */
-  constructor(canvasWidth, canvasHeight, parent, renderDistance = 1e7, totalRays = null, debug = false, options = {}) {
+  constructor(canvasWidth, canvasHeight, parent, state=null, renderDistance = 1e7, totalRays = null, debug = false, options = {}) {
     this.options = {
       worldWidth: null,
       worldHeight: null,
       variableHeight: false,
       assetLoadState: null,
+      automaticallyResize: false
     };
     Object.keys(options).forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(this.options, key)) {
@@ -60,6 +63,27 @@ export default class Raycaster {
     this.prevTime = Date.now();
 
     this._textures = [];
+
+    this.mainGame = null;
+
+    if (this.state !== null) {
+      
+    }
+
+    if (this.automaticallyResize) {
+      this.aspectRatio = {
+        x: this.instanceWidth / document.body.clientWidth,
+        y: this.instanceHeight / document.body.clientHeight
+      }
+    }
+
+    window.addEventListener('resize', (e) => {
+      if (this.automaticallyResize) {
+        this.gameInstances.forEach(game => {
+          game.scale.setGameSize(this.aspectRatio.x * document.body.clientWidth, this.aspectRatio.y * document.body.clientHeight);
+        });
+      }
+    });
   }
 
   init() {
@@ -69,7 +93,6 @@ export default class Raycaster {
     } else {
       this.debugInstance.time.advancedTiming = true;
     }
-    this.debugCamera = new Phaser.Camera(this.debugInstance,0,0,this.instanceWidth,this.instanceHeight);
   }
 
   loadImage(key, path) {

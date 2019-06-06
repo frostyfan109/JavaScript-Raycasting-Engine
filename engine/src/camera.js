@@ -76,7 +76,7 @@ export default class Camera {
     const ctx = this.game.canvas.getContext('2d');
     ctx.beginPath();
     ctx.fillStyle = color.toCSSString();
-    ctx.fillRect(0, 0, this.game.world.width, this.game.world.height / 2);
+    ctx.fillRect(0, 0, this.game.width, this.game.height / 2);
   }
 
   renderGround(color) {
@@ -86,7 +86,7 @@ export default class Camera {
     const ctx = this.game.canvas.getContext('2d');
     ctx.beginPath();
     ctx.fillStyle = color.toCSSString();
-    ctx.fillRect(0, this.game.world.height / 2, this.game.world.width, this.game.world.height / 2);
+    ctx.fillRect(0, this.game.height / 2, this.game.width, this.game.height / 2);
   }
 
   renderView() {
@@ -131,7 +131,7 @@ export default class Camera {
 
 
         const rayLen = this._rays.length;
-        const width = Math.ceil(this.game.world.width / rayLen);
+        const width = Math.ceil(this.game.width / rayLen);
         // console.log(width);
         const dx = collision.x - ray.origin.x;
         const dy = collision.y - ray.origin.y;
@@ -143,15 +143,17 @@ export default class Camera {
 
         const color = collisionObject.color;
 
-        const x = Math.floor((i) * (this.game.world.width / rayLen));
+        const x = Math.floor((i) * (this.game.width / rayLen));
 
-        const projectedHeight = (this.game.world.height / (projHeight / this.fov));
+        const projectedHeight = (this.game.height / (projHeight / this.fov));
+        // console.log(this.game.height);
+        // const projectedHeight = this.game.height/(projHeight/this.fov);
         const height = 2 * actualHeight * (projectedHeight / 2);
-        // Change (this.game.world.height * 2) to (this.game.world.height * verticalAngleInDegrees/360) to look up and down. Maxes at height * 360 and height * 0;
+        // Change (this.game.height * 2) to (this.game.height * verticalAngleInDegrees/360) to look up and down. Maxes at height * 360 and height * 0;
         //    NOTE: Skybox/ground won't work with this method and I don't know a fix. Probably some fairly basic math.
       // Change this.object.varHeight to higher or lower to move on the z-axis.
         // Once at a value > 1, variable height must be enabled for it to render properly.
-        const y = (this.game.world.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
+        const y = (this.game.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
         const column = new Phaser.Rectangle(
           x, // x
           y, // y

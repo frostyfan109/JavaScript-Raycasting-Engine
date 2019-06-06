@@ -1,54 +1,77 @@
+class RotatingWall extends Raycaster.Wall {
+  constructor(raycaster,x,y,x2,y2,options={}) {
+    super(raycaster,x,y,x2,y2,options);
+  }
+  update() {
+    super.update();
+
+  }
+}
+
 class Player extends Raycaster.PlanarObject {
   constructor(raycaster,game,x,y) {
     let width = 100;
     let height = .5;
     super(raycaster, x, y, x+width, y, {
-      varHeight: height
+      varHeight: height,
+      texture: 'player'
     });
     this.game = game;
 
-    this.addCamera(game);
+    this.addCamera(game, 100);
 
     this.keys = {
-      w:game.input.keyboard.addKey(Phaser.Keyboard.W),
-      a:game.input.keyboard.addKey(Phaser.Keyboard.A),
-      s:game.input.keyboard.addKey(Phaser.Keyboard.S),
-      d:game.input.keyboard.addKey(Phaser.Keyboard.D),
-      left:game.input.keyboard.addKey(Phaser.Keyboard.LEFT),
-      right:game.input.keyboard.addKey(Phaser.Keyboard.RIGHT),
-      up:game.input.keyboard.addKey(Phaser.Keyboard.UP),
-      down:game.input.keyboard.addKey(Phaser.Keyboard.DOWN),
-      shift:game.input.keyboard.addKey(Phaser.Keyboard.SHIFT)
+      w:game.input.keyboard.addKey(87),
+      a:game.input.keyboard.addKey(65),
+      s:game.input.keyboard.addKey(83),
+      d:game.input.keyboard.addKey(68),
+      left:game.input.keyboard.addKey(37),
+      right:game.input.keyboard.addKey(39),
+      up:game.input.keyboard.addKey(38),
+      down:game.input.keyboard.addKey(40),
+      shift:game.input.keyboard.addKey(16),
+      space:game.input.keyboard.addKey(32)
     };
-
 
     this._TERMINAL_VELOCITY = {
       x: 300,
-      y: 300
+      z: 300,
+      y: 10006
     };
+
+    this.jumpForce = 375;
 
     this.ARCADE_PHYSICS = true;
 
+    this.friction.y = GRAVITATIONAL_FORCE;
+
     if (this.ARCADE_PHYSICS) {
       // Adjust force for fixed speed
-      this.forwardForce = 10000;
-      this.strafeForce = 10000;
+      this.force = 17500;
     }
     else {
-      this.forwardForce = 1250;
-      this.strafeForce = 1250;
+      this.force = 2500;
 
-      this.friction = {
-        x:  750,
-        y:  750
-      };
+      this.friction.x = 750;
+      this.friction.z = 750;
     }
   }
   render(elapsed) {
     super.render(elapsed);
     let ctx = this.game.canvas.getContext('2d');
     this.camera.render();
-    minimap.render();
+  }
+  /**
+   * Applies a negative force to the player's y-velocity
+   *
+   * @param {number} elapsed - Elapsed time in milliseconds since the previous frame. Used to calculate time-based movement.
+   */
+  jump(elapsed) {
+    // Requires varHeight to work properly when the y-axis exceeds 1
+    // If the player is not grounded, do not jump
+    if (this.yPos3D === 0) {
+      this.moveY(this.jumpForce, elapsed);
+    }
   }
   /**
    * Moves the Player in the 2d plane.
@@ -60,9 +83,7 @@ class Player extends Raycaster.PlanarObject {
    *
    */
   move(horiz, vert, mult, elapsed) {
-    const forwardForce = this.forwardForce * vert * mult;
-    const strafeForce = this.strafeForce * horiz * mult;
-    const force = (forwardForce + strafeForce);
+    const force = this.force * (vert + horiz) * mult;
     super.move(force, horiz, elapsed);
   }
   /**
@@ -77,7 +98,7 @@ class Player extends Raycaster.PlanarObject {
     super.turnHorizontally(angle);
   }
   /**
-   * Rotates the Player's vertical angle about the z-axis of a sphere (in a 3d context).
+   * Rotates the Player's vertical angle about the y-axis of a sphere (in a 3d context).
    *
    * @param {number} vert - Within {-1, 1}. Indicates direction.
    * @param {number} elapsed - Elapsed time in milliseconds since the previous frame. Used to calculate time-based movement.
@@ -92,10 +113,8 @@ class Player extends Raycaster.PlanarObject {
     let mult = 1;
     if (this.keys.shift.isDown) mult += SHIFT_MULT;
 
-
-
-    this.terminalVelocity.x = this._TERMINAL_VELOCITY.x * mult;
-    this.terminalVelocity.y = this._TERMINAL_VELOCITY.y * mult;
+    if (this._TERMINAL_VELOCITY.x !== null) this.terminalVelocity.x = this._TERMINAL_VELOCITY.x * mult;
+    if (this._TERMINAL_VELOCITY.z !== null) this.terminalVelocity.z = this._TERMINAL_VELOCITY.z * mult;
 
     if (this.keys.w.isDown) {
       this.move(0,1,mult,elapsed);
@@ -121,16 +140,22 @@ class Player extends Raycaster.PlanarObject {
     if (this.keys.down.isDown) {
       this.turnVertically(-1, elapsed);
     }
+    if (this.keys.space.isDown) {
+      this.jump(elapsed);
+    }
   }
 
   update(elapsed) {
     super.update(elapsed);
     /* Traditional arcade-esque physics */
     if (this.ARCADE_PHYSICS) {
-      this.velocity = {
-        x: 0,
-        y: 0
-      };
+      this.velocity.x = 0;
+      this.velocity.z = 0;
+      // Leave y-axis.
+    }
+    if (this.yPos3D < 0) {
+      this.yPos3D = 0;
+      this.velocity.y = 0;
     }
     this.handleInput(elapsed);
   }
@@ -142,35 +167,41 @@ class Player extends Raycaster.PlanarObject {
   }
 }
 
-MOUSE_TURN_MULT = 1 / 4;
-KEYBOARD_TURN_HORIZ_MULT = 1.25;
-KEYBOARD_TURN_VERT_MULT = 3;
-SHIFT_MULT = 1;
+const MOUSE_TURN_MULT = 1 / 4;
+const KEYBOARD_TURN_HORIZ_MULT = 1.25;
+const KEYBOARD_TURN_VERT_MULT = 3;
+const SHIFT_MULT = 1;
 
-class RotatingWall extends Raycaster.Wall {
-  constructor(raycaster,x,y,x2,y2,options={}) {
-    super(raycaster,x,y,x2,y2,options);
-  }
-}
+const GRAVITATIONAL_FORCE = 40;
 
-let GameObj = {
-  preload: function() {
-    let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true},function(texture) {
-      console.log(texture);
-    });
+function GameObj() {
+  let player = null;
+  let map = null;
+  let minimap = null;
+  function preload() {
+
+    let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true});
+    // let texture = raycaster.loadTexture('foo','images/test.mp4',{ videoProps: {muted: true, loop: true }});
+    // raycaster.loadTexture('foo2','https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif');
     raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
+    raycaster.loadTexture('player','images/player.png');
+    raycaster.loadTexture('wall','https://res.cloudinary.com/rebelwalls/image/upload/b_black,c_fill,fl_progressive,h_533,q_auto,w_800/v1479371023/article/R10961_image1');
 
-    // TODO: add and test jumping to see if it's any good with the skybox and ground.
-    // TODO: implement split screen
+    // TODO: Map builder and extend the abilities of a map. Chunked map?
+    // TODO: could add sprite sheet parsing to image textures for ease of use.
+        // TODO: could also make it a utility, so one could load multiple textures into a single texture for easier management.
+    // TODO: try to fix looking up and down with the skybox and ground
     // TODO: add shading (how?)
-    // TODO: try to optimize gif loading (when async it still stalls phaser)
+    // TODO: implement split screen
+    //    also add more game instance mangement functions. currently there is no supported method for resizing game instances for example
     // TODO: change to step based - would be far more optimized for variable height and others
+    // TODO: fix debug by adding camera
 
-  },
-  init: function() {
+  }
+  function init() {
     raycaster.init();
-  },
-  create: function() {
+  }
+  function create() {
     map = Raycaster.MapBuilder.build(
       raycaster,
       [
@@ -178,7 +209,7 @@ let GameObj = {
         [0, 0, 0, 0, 0, 0],
         [0, 1, 2, 3, 1, 0],
         [0, 2, 0, 0, 2, 0],
-        [0, 3, 0, 0, 3, 0],
+        [0, 2, 0, 0, 3, 0],
         [0, 1, 0, 0, 1, 0],
         [0, 0, 0, 0, 0, 0]
         ],
@@ -196,7 +227,7 @@ let GameObj = {
           },
           3: {
             helper: function(raycaster,x1,y1,x2,y2) {
-              return Raycaster.constructWallBlock(raycaster,x1,y1,x2,y2,Raycaster.Wall,{color:new Raycaster.Color(0,255,255,1)});
+              return Raycaster.constructWallBlock(raycaster,x1,y1,x2,y2,Raycaster.Wall,{color:new Raycaster.Color(0,255,255,1),texture:'wall'});
             }
           },
           4: {
@@ -218,7 +249,9 @@ let GameObj = {
     );
 
 
-    player = new Player(raycaster,game,50,50);
+    player = new Player(raycaster,g,50,50);
+    player.drawCollision = true;
+    player.drawFov = true;
     // player.setupMouse(game);
     // player.enableMouse(game);
 
@@ -242,17 +275,29 @@ let GameObj = {
     raycaster.debugObjects.push(player);
 
     raycaster.start();
-
-
-
-
-
-    // game.add.image(0,0,'foo');
-  },
-  update: function() {
+  }
+  function update() {
     raycaster.update();
-  },
-  render: function() {
+  }
+  function render() {
+    minimap.render();
+  }
+  // Due to the way that Phaser handles states, the function must expose public members as getters
+  return {
+    player: () => player,
+    map: () => map,
+    minimap: () => minimap,
+    preload: preload,
+    init: init,
+    create: create,
+    update: update,
+    render: render
+  };
+};
+
+let mainState = {
+  update: function() {
+    console.log(0);
   }
 };
 
@@ -277,15 +322,22 @@ let loadState = {
     this.elapsed += this.time.elapsed;
   }
 }
-
-let raycaster = new Raycaster.Engine(1000,600,'',undefined,500,false,{
-  variableHeight:false,
-  assetLoadState:null,
-  worldWidth: 1000,
-  worldHeight: 1000
-});
+let raycaster = new Raycaster.Engine(
+  750,
+  600,
+  '',
+  mainState,
+  undefined,
+  500,
+  false,
+  {
+    variableHeight:false,
+    assetLoadState:null,
+    worldWidth: 1000,
+    worldHeight: 1000,
+    automaticallyResize: false,
+  }
+);
 raycaster.renderFPS = true;
-let player;
-let map;
-let minimap;
-const game = raycaster.createGame(GameObj);
+const g = raycaster.createGame(GameObj());
+const g2 = raycaster.createGame(GameObj());

@@ -1,31 +1,4 @@
 import TextureWorker from './texture.worker.js';
-async function GIFFrame(frame) {
-  const r = Date.now();
-  console.time(r);
-  const c = document.createElement('canvas');
-  c.width = frame.dims.width;
-  c.height = frame.dims.height;
-  console.timeEnd(r);
-
-  console.time(r);
-
-  const ctx = c.getContext('2d');
-  const imageData = ctx.createImageData(c.width, c.height);
-
-  console.timeEnd(r);
-
-  console.time(r);
-  imageData.data.set(frame.patch);
-  ctx.putImageData(imageData, 0, 0);
-
-  console.timeEnd(r);
-  console.time(r);
-  c.frameLength = frame.delay;
-
-  console.timeEnd(r);
-
-  return c;
-}
 
 export class TextureData {
   constructor(key) {
