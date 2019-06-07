@@ -1,4 +1,5 @@
 import TextureWorker from './texture.worker.js';
+import { LoadError } from './errors';
 
 export class TextureData {
   constructor(key) {

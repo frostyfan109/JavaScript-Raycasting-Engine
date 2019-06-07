@@ -1,5 +1,7 @@
 import { Texture, TextureData } from './texture';
 import { PlanarObject, Wall, Entity, wallBlock } from './objects';
+import { CacheError } from './errors';
+import Keyboard from './keyboard';
 import Color from './color';
 
 export default class Raycaster {
@@ -60,15 +62,13 @@ export default class Raycaster {
     this.objects = [];
     this.running = false;
 
-    this.prevTime = Date.now();
+    this.prevTime = performance.now();
 
     this._textures = [];
 
-    this.mainGame = null;
+    this.keyboard = new Keyboard();
 
-    if (this.state !== null) {
-      
-    }
+    this.mainGame = state;
 
     if (this.automaticallyResize) {
       this.aspectRatio = {
@@ -87,23 +87,90 @@ export default class Raycaster {
   }
 
   init() {
-    this.debugInstance = new Phaser.Game(this.instanceWidth, this.instanceHeight, this.instanceParent, Phaser.CANVAS);
-    if (!this.debugMode) {
-      this.debugInstance.canvas.style.display = 'none';
-    } else {
-      this.debugInstance.time.advancedTiming = true;
+    // this.debugInstance = new Phaser.Game(this.instanceWidth, this.instanceHeight, this.instanceParent, Phaser.CANVAS);
+    // if (!this.debugMode) {
+      // this.debugInstance.canvas.style.display = 'none';
+    // } else {
+      // this.debugInstance.time.advancedTiming = true;
+    // }
+    this.running = true;
+
+
+    if (this.worldWidth !== null && this.worldHeight !== null) {
+      this.addGameObjects(
+        this.create.wallBlock(0,0,this.worldWidth,this.worldHeight, Wall,{color:new Color(255,255,255,1)})
+      );
+    }
+
+    if (this.mainGame !== null) {
+      // Main state is passed the raycaster instance if needed
+      let mainState = new this.mainGame(this);
+      mainState.preload()
+      this.gameInstances.forEach((game) => {
+        let parentElement = this.instanceParent === '' ? null : document.getElementById(this.instanceParent);
+          if (parentElement === null) parentElement = document.body;
+          parentElement.appendChild(game.canvas);
+          game.state = new game.State(game);
+          game.state.preload();
+      });
+      mainState.create();
+      this.gameInstances.forEach((game) => {
+          game.state.create();
+      });
+      const update = () => {
+          const delta = this._update();
+          mainState.update(delta);
+          this.gameInstances.forEach((game) => {
+              game.time.totalElapsed += delta;
+              game.time.delta = delta;
+              game.state.update(delta);
+          });
+          mainState.render();
+          this.gameInstances.forEach((game) => {
+              game.state.render(delta);
+              game.time.totalFrames++;
+              this.renderDebugMode();
+          });
+          window.requestAnimationFrame(update);
+      }
+      window.requestAnimationFrame(update);
+    }
+    else {
+      // Only one game instance (hopefully)
+      this.gameInstances.forEach((game) => {
+        let parentElement = this.instanceParent === '' ? null : document.getElementById(this.instanceParent);
+        // If parent is empty or element doesn't exist append to body
+        if (parentElement === null) parentElement = document.body;
+        parentElement.appendChild(game.canvas);
+
+        let state = new game.State(game);
+        state.preload();
+        state.create();
+
+        const update = () => {
+          const delta = this._update();
+          game.time.totalElapsed += delta;
+          game.time.delta = delta;
+          state.update(delta);
+          state.render(delta);
+          this.renderDebugMode();
+          game.time.totalFrames++;
+          window.requestAnimationFrame(update);
+        }
+        window.requestAnimationFrame(update);
+      });
     }
   }
 
-  loadImage(key, path) {
-    this.gameInstances.forEach((g) => {
-      g.load.image(key, path);
-    });
-    return key;
-  }
-
   getTextureData(key) {
-    return this._textures[key];
+    const data = this._textures[key];
+    if (data === undefined) {
+      throw new CacheError(`Texture "${key}" does not exist in the cache.`);
+      return false;
+    }
+    else {
+      return data;
+    }
   }
 
   async loadTexture(key, path, options = {}) {
@@ -120,6 +187,8 @@ export default class Raycaster {
 
     const texture = new TextureData(key);
 
+    this._textures.hasOwnProperty(key) && console.warn(new CacheError(`Texture ${key} was overwritten`));
+
     this._textures[key] = texture;
 
     await texture.load(path, options);
@@ -129,69 +198,34 @@ export default class Raycaster {
     // return key;
   }
 
-  createGame(g) {
-    const { preload } = g;
-    g.preload = (...args) => {
-      // eslint-disable-next-line no-use-before-define
-      instance.time.totalFrames = 0;
-      preload(...args);
-    };
-
-
-    const loadState = this.assetLoadState;
-    if (loadState !== null) {
-      const loadStatePreload = loadState.preload;
-      loadState.preload = (...args) => {
-        preload();
-        loadStatePreload(...args);
-        const int = 10;
-        const f = () => {
-          if (Object.values(this._textures).every(t => t.loaded)) {
-            // eslint-disable-next-line no-use-before-define
-            instance.state.start('main');
-          } else {
-            setTimeout(f, int);
-          }
-        };
-        setTimeout(f, int);
-      };
-      delete g.preload;
-    }
-
-
-    const { create } = g;
-    g.create = (...args) => {
-      if (this.worldWidth !== null && this.worldHeight !== null) {
-        this.addGameObjects(
-          this.create.wallBlock(0,0,this.worldWidth,this.worldHeight, Wall,{color:new Color(255,255,255,1)})
-        );
-      }
-      create(...args);
-    }
-
-
-    const { render } = g;
-    g.render = (...args) => {
-      // eslint-disable-next-line no-use-before-define
-      instance.time.totalFrames++;
-      render(...args);
-      this.renderDebug();
-    };
-
-    const state = this.assetLoadState !== null ? loadState : g;
-    let instance = new Phaser.Game(this.instanceWidth, this.instanceHeight, Phaser.CANVAS, this.instanceParent, state);
-    instance.state.add('main', g);
-    this.gameInstances.push(instance);
-    return instance;
+  /**
+   * Create a raycaster game instance (rendering and logical space).
+   *
+   * @param {Object} state - A state constructor returning or containing methods `preload`, `create`, `update`, and `render.`
+   */
+  createGame(state) {
+    let canvas = document.createElement('canvas');
+    canvas.width = this.instanceWidth;
+    canvas.height = this.instanceHeight;
+    let game = this._createGameObject(state, canvas);
+    this.gameInstances.push(game);
+    return game;
   }
 
-  start() {
-    this.debugInstance.physics.startSystem(Phaser.Physics.ARCADE);
-
-    // this.player = new Player(this.game,50,50);
-    // this.addGameObject(this.player);
-    // this.addGameObject(new Wall(this.game,200,200,400,400));
-    this.running = true;
+  _createGameObject(state, canvas) {
+    return {
+      canvas: canvas,
+      time: {
+        totalFrames: 0,
+        totalElapsed: 0,
+        delta: 0,
+        get fps() {
+          // Should probably improve the formula
+          return 1000 / this.delta;
+        }
+      },
+      State: state
+    };
   }
 
   /**
@@ -218,8 +252,8 @@ export default class Raycaster {
     this.objects = this.objects.filter(o => o !== obj);
   }
 
-  update() {
-    const newTime = Date.now();
+  _update() {
+    const newTime = performance.now();
     const delta = newTime - this.prevTime;
     this.prevTime = newTime;
 
@@ -232,52 +266,32 @@ export default class Raycaster {
       obj.update(delta);
     });
 
+    return delta;
+
   }
 
 
 
-  renderDebug() {
-    this.objects.forEach((obj) => {
-      obj.render();
-      if (obj instanceof PlanarObject) {
-        if (this.debugMode) {
-          this.debugInstance.debug.geom(obj, obj.color.toCSSString());
-          if (obj.camera !== null) {
-            obj.camera._rays.forEach((ray) => {
-              if (obj.drawFov) {
-                this.debugInstance.debug.geom(new Phaser.Line(ray.origin.x, ray.origin.y, ray.end.x, ray.end.y), '#ff0000');
-              }
-              if (obj.drawCollision) {
-                ray.collisions.forEach((collision) => {
-                  this.debugInstance.debug.geom(new Phaser.Line(ray.origin.x, ray.origin.y, collision.p.x, collision.p.y), '#00ff00');
-                });
-              }
-            });
-          }
-        }
-        if (this.renderFPS) {
-          [...this.gameInstances, this.debugInstance].forEach((instance) => {
-            if (instance.time.advancedTiming !== true) {
-              instance.time.advancedTiming = true;
-              return;
-            }
-            let ctx = instance.canvas.getContext('2d');
-            if (ctx !== null) {
-              ctx.font = "20px Arial";
-              ctx.fillStyle = "#000000";
-              ctx.fillText("FPS: "+instance.time.fps, 20, 35);
+  renderDebugMode() {
+    if (this.renderFPS) {
+      this.gameInstances.forEach((instance) => {
+        let ctx = instance.canvas.getContext('2d');
+          ctx.font = "20px Arial";
+          ctx.fillStyle = "#000000";
 
-              ctx.font = "14px Arial";
-              ctx.fillStyle = "#000000";
-              this.debugObjects.forEach((obj, i) => {
-                const objRepr = `${obj.constructor.name}(x: ${Math.round(obj.x)}, z: ${Math.round(obj.y)}, y: ${Math.round(obj.yPos3D)})`;
-                ctx.fillText(objRepr, 20, 70+(i*30));
-              });
-            }
+          ctx.fillText("FPS: "+instance.time.fps.toFixed(0), 20, 35);
+
+          ctx.font = "14px Arial";
+          ctx.fillStyle = "#000000";
+          this.debugObjects.forEach((obj, i) => {
+            const objRepr = `${obj.constructor.name}(x: ${Math.round(obj.x)}, z: ${Math.round(obj.y)}, y: ${Math.round(obj.yPos3D)})`;
+            ctx.fillText(objRepr, 20, 70+(i*30));
           });
-        }
-      }
-    });
+      });
+    }
+    // this.objects.forEach((obj) => {
+    // });
+
   }
 }
 

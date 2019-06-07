@@ -37,6 +37,10 @@ export default class Camera {
     // 3d context
     // yOffset is at the top of the object
     this.yOffset = this.object.varHeight;
+
+    // May set to render the ground and sky custom colors
+    this.groundColor = undefined;
+    this.skyColor = undefined;
   }
 
   calculateRayCollision() {
@@ -63,36 +67,35 @@ export default class Camera {
     }
   }
 
-  render() {
-    this.renderGround();
-    this.renderSky();
-    this.renderView();
+  render() {    
+    const ctx = this.game.canvas.getContext('2d');
+
+    this.renderGround(ctx, this.groundColor);
+    this.renderSky(ctx, this.skyColor);
+    this.renderView(ctx);
   }
 
-  renderSky(color) {
+  renderSky(ctx, color) {
     // eslint-disable-next-line no-param-reassign
     if (typeof color === 'undefined') color = new Color(99, 185, 255, 1);
 
-    const ctx = this.game.canvas.getContext('2d');
     ctx.beginPath();
     ctx.fillStyle = color.toCSSString();
-    ctx.fillRect(0, 0, this.game.width, this.game.height / 2);
+    ctx.fillRect(0, 0, this.object.raycaster.instanceWidth, this.object.raycaster.instanceHeight / 2);
   }
 
-  renderGround(color) {
+  renderGround(ctx, color) {
     // eslint-disable-next-line no-param-reassign
     if (typeof color === 'undefined') color = new Color(226, 226, 226, 1);
 
-    const ctx = this.game.canvas.getContext('2d');
     ctx.beginPath();
     ctx.fillStyle = color.toCSSString();
-    ctx.fillRect(0, this.game.height / 2, this.game.width, this.game.height / 2);
+    ctx.fillRect(0, this.object.raycaster.instanceHeight / 2, this.object.raycaster.instanceWidth, this.object.raycaster.instanceHeight / 2);
   }
 
-  renderView() {
+  renderView(ctx) {
     this.castRays();
     this.calculateRayCollision();
-    const ctx = this.game.canvas.getContext('2d');
     const drawTimes = [];
     const drawColumn = (column, color) => {
       ctx.beginPath();
@@ -131,7 +134,7 @@ export default class Camera {
 
 
         const rayLen = this._rays.length;
-        const width = Math.ceil(this.game.width / rayLen);
+        const width = Math.ceil(this.object.raycaster.instanceWidth / rayLen);
         // console.log(width);
         const dx = collision.x - ray.origin.x;
         const dy = collision.y - ray.origin.y;
@@ -143,17 +146,17 @@ export default class Camera {
 
         const color = collisionObject.color;
 
-        const x = Math.floor((i) * (this.game.width / rayLen));
+        const x = Math.floor((i) * (this.object.raycaster.instanceWidth / rayLen));
 
-        const projectedHeight = (this.game.height / (projHeight / this.fov));
-        // console.log(this.game.height);
-        // const projectedHeight = this.game.height/(projHeight/this.fov);
+        const projectedHeight = (this.object.raycaster.instanceHeight / (projHeight / this.fov));
+        // console.log(this.object.raycaster.instanceHeight);
+        // const projectedHeight = this.object.raycaster.instanceHeight/(projHeight/this.fov);
         const height = 2 * actualHeight * (projectedHeight / 2);
-        // Change (this.game.height * 2) to (this.game.height * verticalAngleInDegrees/360) to look up and down. Maxes at height * 360 and height * 0;
+        // Change (this.object.raycaster.instanceHeight * 2) to (this.object.raycaster.instanceHeight * verticalAngleInDegrees/360) to look up and down. Maxes at height * 360 and height * 0;
         //    NOTE: Skybox/ground won't work with this method and I don't know a fix. Probably some fairly basic math.
       // Change this.object.varHeight to higher or lower to move on the z-axis.
         // Once at a value > 1, variable height must be enabled for it to render properly.
-        const y = (this.game.height * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
+        const y = (this.object.raycaster.instanceHeight * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
         const column = new Phaser.Rectangle(
           x, // x
           y, // y

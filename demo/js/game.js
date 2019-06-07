@@ -20,23 +20,18 @@ class Player extends Raycaster.PlanarObject {
 
     this.addCamera(game, 100);
 
-    this.keys = {
-      w:game.input.keyboard.addKey(87),
-      a:game.input.keyboard.addKey(65),
-      s:game.input.keyboard.addKey(83),
-      d:game.input.keyboard.addKey(68),
-      left:game.input.keyboard.addKey(37),
-      right:game.input.keyboard.addKey(39),
-      up:game.input.keyboard.addKey(38),
-      down:game.input.keyboard.addKey(40),
-      shift:game.input.keyboard.addKey(16),
-      space:game.input.keyboard.addKey(32)
-    };
+    const [w, h] = [125, 125];
+    const padding = 10;
+    this.minimap = new Raycaster.Minimap(this, raycaster.instanceWidth-w-padding, padding, w, h, undefined, undefined, {
+      borderWidth: 3
+    });
+
+    this.keys = Player.KEYS.shift();
 
     this._TERMINAL_VELOCITY = {
       x: 300,
       z: 300,
-      y: 10006
+      y: 10000
     };
 
     this.jumpForce = 375;
@@ -60,6 +55,7 @@ class Player extends Raycaster.PlanarObject {
     super.render(elapsed);
     let ctx = this.game.canvas.getContext('2d');
     this.camera.render();
+    this.minimap.render();
   }
   /**
    * Applies a negative force to the player's y-velocity
@@ -128,10 +124,10 @@ class Player extends Raycaster.PlanarObject {
     if (this.keys.d.isDown) {
       this.move(-1,0,mult,elapsed);
     }
-    if (this.keys.left.isDown) {
+    if (this.keys.q.isDown) {
       this.turnHorizontally(-1, elapsed);
     }
-    if (this.keys.right.isDown) {
+    if (this.keys.e.isDown) {
       this.turnHorizontally(1, elapsed);
     }
     if (this.keys.up.isDown) {
@@ -174,32 +170,65 @@ const SHIFT_MULT = 1;
 
 const GRAVITATIONAL_FORCE = 40;
 
-function GameObj() {
-  let player = null;
-  let map = null;
-  let minimap = null;
+function GameObj(g) {
+  return {
+    preload: function() {
+    },
+    create: function() {
+    },
+    update: function() {
+    },
+    render: function() {
+    }
+  };
+};
+
+let mainState = function(raycaster) {
+  let game1;
+  let game2;
+  let players = [];
+  let map;
   function preload() {
+    game1 = raycaster.createGame(GameObj);
+    game2 = raycaster.createGame(GameObj);
 
     let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true});
     // let texture = raycaster.loadTexture('foo','images/test.mp4',{ videoProps: {muted: true, loop: true }});
-    // raycaster.loadTexture('foo2','https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif');
-    raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
+    raycaster.loadTexture('foo2','https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif');
+    // raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
     raycaster.loadTexture('player','images/player.png');
     raycaster.loadTexture('wall','https://res.cloudinary.com/rebelwalls/image/upload/b_black,c_fill,fl_progressive,h_533,q_auto,w_800/v1479371023/article/R10961_image1');
 
-    // TODO: Map builder and extend the abilities of a map. Chunked map?
-    // TODO: could add sprite sheet parsing to image textures for ease of use.
-        // TODO: could also make it a utility, so one could load multiple textures into a single texture for easier management.
-    // TODO: try to fix looking up and down with the skybox and ground
-    // TODO: add shading (how?)
-    // TODO: implement split screen
-    //    also add more game instance mangement functions. currently there is no supported method for resizing game instances for example
-    // TODO: change to step based - would be far more optimized for variable height and others
-    // TODO: fix debug by adding camera
-
-  }
-  function init() {
-    raycaster.init();
+    Player.KEYS = [
+      {
+        w:raycaster.keyboard.addKey(Raycaster.Key.W),
+        a:raycaster.keyboard.addKey(Raycaster.Key.A),
+        s:raycaster.keyboard.addKey(Raycaster.Key.S),
+        d:raycaster.keyboard.addKey(Raycaster.Key.D),
+        q:raycaster.keyboard.addKey(Raycaster.Key.Q),
+        e:raycaster.keyboard.addKey(Raycaster.Key.E),
+        shift:{},
+        space:{},
+        up:{},
+        down:{}
+        // shift:raycaster.keyboard.addKey(Raycaster.Key.SHIFT),
+        // space:raycaster.keyboard.addKey(Raycaster.Key.SPACE)
+      },
+      {
+        w:raycaster.keyboard.addKey(Raycaster.Key.UP_ARROW),
+        a:raycaster.keyboard.addKey(Raycaster.Key.LEFT_ARROW),
+        s:raycaster.keyboard.addKey(Raycaster.Key.DOWN_ARROW),
+        d:raycaster.keyboard.addKey(Raycaster.Key.RIGHT_ARROW),
+        q:raycaster.keyboard.addKey(Raycaster.Key.COMMA),
+        e:raycaster.keyboard.addKey(Raycaster.Key.PERIOD),
+        shift:{},
+        space:{},
+        up:{},
+        down:{}
+        // shift:raycaster.keyboard.addKey(Raycaster.Key.SHIFT),
+        // space:raycaster.keyboard.addKey(Raycaster.Key.SPACE)
+      }
+    ];
   }
   function create() {
     map = Raycaster.MapBuilder.build(
@@ -247,21 +276,6 @@ function GameObj() {
       6,
       6
     );
-
-
-    player = new Player(raycaster,g,50,50);
-    player.drawCollision = true;
-    player.drawFov = true;
-    // player.setupMouse(game);
-    // player.enableMouse(game);
-
-    const [width, height] = [125, 125];
-    const padding = 10;
-    minimap = new Raycaster.Minimap(player, raycaster.instanceWidth-width-padding, padding, width, height, undefined, undefined, {
-      borderWidth: 3
-    });
-
-    raycaster.addGameObject(player);
     raycaster.addGameObjects(map);
     raycaster.addGameObject(new RotatingWall(
       raycaster,
@@ -272,34 +286,31 @@ function GameObj() {
       {color:new Raycaster.Color(0,255,255,1)}
     ));
 
-    raycaster.debugObjects.push(player);
+    player1 = new Player(raycaster,game1,50,50);
+    player2 = new Player(raycaster,game2,50,50);
+    raycaster.addGameObjects([player1, player2]);
 
-    raycaster.start();
+    raycaster.debugObjects.push(...[player1, player2]);
+
+    players.push(...[player1, player2]);
+
   }
   function update() {
-    raycaster.update();
+
   }
   function render() {
-    minimap.render();
+    players.forEach(player => {
+      player.render();
+    });
   }
-  // Due to the way that Phaser handles states, the function must expose public members as getters
   return {
-    player: () => player,
-    map: () => map,
-    minimap: () => minimap,
+    players: () => players,
     preload: preload,
-    init: init,
     create: create,
     update: update,
     render: render
   };
-};
-
-let mainState = {
-  update: function() {
-    console.log(0);
-  }
-};
+}
 
 let loadState = {
   preload: function() {
@@ -328,7 +339,7 @@ let raycaster = new Raycaster.Engine(
   '',
   mainState,
   undefined,
-  500,
+  1000,
   false,
   {
     variableHeight:false,
@@ -339,5 +350,20 @@ let raycaster = new Raycaster.Engine(
   }
 );
 raycaster.renderFPS = true;
-const g = raycaster.createGame(GameObj());
-const g2 = raycaster.createGame(GameObj());
+
+raycaster.init();
+
+
+// TODO: look into image compression via an OffscreenCanvas
+// TODO: add minimap viewWidth and viewHeight functionality
+// TODO (bug): elapsed should probably on a per instance basis.
+// TODO: Map builder and extend the abilities of a map. Chunked map?
+// TODO: Map builder load from file
+// TODO: could add sprite sheet parsing to image textures for ease of use.
+    // TODO: could also make it a utility, so one could load multiple textures into a single texture for easier management.
+// TODO: try to fix looking up and down with the skybox and ground
+// TODO: add shading (how?)
+// TODO: implement split screen
+//    also add more game instance mangement functions. currently there is no supported method for resizing game instances for example
+// TODO: change to step based - would be far more optimized for variable height and others
+// TODO: fix debug by adding camera

@@ -50,7 +50,14 @@ export class PlanarObject extends Phaser.Line {
 
     // if (typeof this.options.color === "string") this.options.color = new Color(this.options.color); //TODO
     if (this.texture instanceof String || typeof this.texture === 'string') {
-      this.texture = raycaster.create.texture(raycaster.getTextureData(this.texture));
+      try {
+        this.texture = raycaster.create.texture(raycaster.getTextureData(this.texture));
+      }
+      catch (e) {
+        // Error is thrown if the texture does not exist in the cache. However, this should not halt the program.
+        console.warn(e);
+        this.texture = null;
+      }
     }
 
     // Experimental
