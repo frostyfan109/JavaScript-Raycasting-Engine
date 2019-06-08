@@ -11,7 +11,7 @@ export default class Raycaster {
   @param {number} width - Width in pixels of game instances
   @param {number} height - Height in pixels of game instances
   @param {string | HTMlElement} parent - Parent element that game instances will be created within
-  @param {Phaser.State | null} state - State used to manage game instances.
+  @param {Object | null} state - Takes a state object used to manage game instances.
   @param {number} [renderDistance=100000] - Max length in pixels of rays that Entities cast out
     Has infinitesimal effect on performance
   @param {number} [totalRays=null] - Total amount of rays that are cast out by an Entity
@@ -24,7 +24,7 @@ export default class Raycaster {
   @param {Boolean} [options.variableHeight=false] - Sets if PlanarObjects not of type Entity may have variable height
     Must be set in order for variable height to render properly or else taller objects will not be rendered when behind shorter ones
     // NOTE: Variable height results in some loss of performance
-  @param {Phaser.State | null} [options.assetLoadState=null] - Loads all assets synchronously before proceeding to the preload state. If null, loads assets asynchronously.
+  @param {Object | null} [options.assetLoadState=null] - Takes a state object. Loads all assets synchronously before proceeding to the preload state. If null, loads assets asynchronously.
   @param {Boolean} [options.automaticallyResize] - Maintains the sizes of game instances in proportion to the window's size.
   */
   constructor(canvasWidth, canvasHeight, parent, state=null, renderDistance = 1e7, totalRays = null, debug = false, options = {}) {
@@ -87,12 +87,6 @@ export default class Raycaster {
   }
 
   init() {
-    // this.debugInstance = new Phaser.Game(this.instanceWidth, this.instanceHeight, this.instanceParent, Phaser.CANVAS);
-    // if (!this.debugMode) {
-      // this.debugInstance.canvas.style.display = 'none';
-    // } else {
-      // this.debugInstance.time.advancedTiming = true;
-    // }
     this.running = true;
 
 
@@ -122,6 +116,7 @@ export default class Raycaster {
           mainState.update(delta);
           this.gameInstances.forEach((game) => {
               game.time.totalElapsed += delta;
+              game.time.prevDelta = game.time.delta;
               game.time.delta = delta;
               game.state.update(delta);
           });
@@ -134,31 +129,33 @@ export default class Raycaster {
           window.requestAnimationFrame(update);
       }
       window.requestAnimationFrame(update);
+      return mainState;
     }
     else {
       // Only one game instance (hopefully)
-      this.gameInstances.forEach((game) => {
-        let parentElement = this.instanceParent === '' ? null : document.getElementById(this.instanceParent);
-        // If parent is empty or element doesn't exist append to body
-        if (parentElement === null) parentElement = document.body;
-        parentElement.appendChild(game.canvas);
+      const game = this.gameInstances[0];
+      let parentElement = this.instanceParent === '' ? null : document.getElementById(this.instanceParent);
+      // If parent is empty or element doesn't exist append to body
+      if (parentElement === null) parentElement = document.body;
+      parentElement.appendChild(game.canvas);
 
-        let state = new game.State(game);
-        state.preload();
-        state.create();
+      let state = new game.State(game);
+      state.preload();
+      state.create();
 
-        const update = () => {
-          const delta = this._update();
-          game.time.totalElapsed += delta;
-          game.time.delta = delta;
-          state.update(delta);
-          state.render(delta);
-          this.renderDebugMode();
-          game.time.totalFrames++;
-          window.requestAnimationFrame(update);
-        }
+      const update = () => {
+        const delta = this._update();
+        game.time.totalElapsed += delta;
+        game.time.prevDelta = game.time.delta;
+        game.time.delta = delta;
+        state.update(delta);
+        state.render(delta);
+        this.renderDebugMode();
+        game.time.totalFrames++;
         window.requestAnimationFrame(update);
-      });
+      }
+      window.requestAnimationFrame(update);
+      return state;
     }
   }
 
@@ -219,9 +216,17 @@ export default class Raycaster {
         totalFrames: 0,
         totalElapsed: 0,
         delta: 0,
+        prevDelta: 0,
+        _fpsCounter: 0,
+        _smoothing: 0.1,
+        _weightRatio: 0.1,
+        _prevFps: 0,
         get fps() {
-          // Should probably improve the formula
-          return 1000 / this.delta;
+          let delta = this.delta * (1 - this._weightRatio) + this.prevDelta * this._weightRatio;
+          delta = (this.prevDelta * this._smoothing) + (delta * (1 - this._smoothing));
+          const fps = 1000 / delta;
+          this._prevFps = fps;
+          return fps;
         }
       },
       State: state
@@ -279,7 +284,16 @@ export default class Raycaster {
           ctx.font = "20px Arial";
           ctx.fillStyle = "#000000";
 
-          ctx.fillText("FPS: "+instance.time.fps.toFixed(0), 20, 35);
+          let fps;
+          instance.time._fpsCounter += instance.time.delta;
+          if (instance.time._fpsCounter >= 250) {
+            fps = instance.time.fps.toFixed(0);
+            instance.time._fpsCounter = 0;
+          }
+          else {
+            fps = instance.time._prevFps.toFixed(0);
+          }
+          ctx.fillText("FPS: "+fps, 20, 35);
 
           ctx.font = "14px Arial";
           ctx.fillStyle = "#000000";

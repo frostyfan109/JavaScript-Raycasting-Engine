@@ -2,8 +2,9 @@ import Camera from './camera';
 import { BoundsError } from './errors';
 import Color from './color';
 import { intersect, requestPointerLock } from './util';
+import { Line, Rect } from './geom';
 
-export class PlanarObject extends Phaser.Line {
+export class PlanarObject extends Line {
   /*
   Native renderable object (the equivalent of a line in the Euclidean plane)
 
@@ -25,8 +26,6 @@ export class PlanarObject extends Phaser.Line {
   constructor(raycaster, x, y, x2, y2, options = {}) {
     super(x, y, x2, y2);
     this.raycaster = raycaster;
-
-
 
     this.camera = null;
 
@@ -209,11 +208,11 @@ export class PlanarObject extends Phaser.Line {
     // ifndef
     if (!this.prevPos) {
       this.prevPos = {
-        x: this.midPoint().x,
-        y: this.midPoint().y
+        x: this.midpoint.x,
+        y: this.midpoint.y
       };
     }
-    let mid = this.midPoint();
+    let mid = this.midpoint;
     const slope = [mid.y - this.prevPos.y, mid.x - this.prevPos.x];
     let moveAngle = Math.atan2(slope[0],slope[1]).toDeg();
     if (moveAngle < 0) moveAngle = 360 + moveAngle;
@@ -243,8 +242,8 @@ export class PlanarObject extends Phaser.Line {
     }
 
     this.prevPos = {
-      x: this.midPoint().x,
-      y: this.midPoint().y
+      x: this.midpoint.x,
+      y: this.midpoint.y
     };
   }
   /*
@@ -408,10 +407,13 @@ export class Wall extends PlanarObject {
  */
 export function wallBlock(raycaster, x, y, x2, y2, WallType, options = {}) {
   return [
-    // eslint-disable-next-line new-cap
-    new WallType(raycaster, x, y, x2, y, options),
+    // top
+    new WallType(raycaster, x2, y, x, y, options),
+    // left
     new WallType(raycaster, x, y, x, y2, options),
+    // bottom
     new WallType(raycaster, x, y2, x2, y2, options),
-    new WallType(raycaster, x2, y, x2, y2, options),
+    // right
+    new WallType(raycaster, x2, y, x2, y2, options)
   ];
 }

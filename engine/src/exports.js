@@ -4,6 +4,7 @@ import { MapBuilder, Minimap } from './util';
 import { Texture } from './texture';
 import Camera from './camera';
 import { Key } from './keyboard';
+import { Point, Line, Rect } from './geom';
 import {
   PlanarObject, Wall, wallBlock,
 } from './objects';
@@ -20,5 +21,8 @@ export {
   PlanarObject,
   Color,
   Key,
+  Point,
+  Line,
+  Rect,
   Error
 };

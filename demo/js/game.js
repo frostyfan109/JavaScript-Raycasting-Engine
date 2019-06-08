@@ -190,14 +190,14 @@ let mainState = function(raycaster) {
   let map;
   function preload() {
     game1 = raycaster.createGame(GameObj);
-    game2 = raycaster.createGame(GameObj);
+    // game2 = raycaster.createGame(GameObj);
 
     let texture = raycaster.loadTexture('foo','images/test.gif',{alpha:true});
     // let texture = raycaster.loadTexture('foo','images/test.mp4',{ videoProps: {muted: true, loop: true }});
-    raycaster.loadTexture('foo2','https://upload.wikimedia.org/wikipedia/commons/2/2c/Rotating_earth_%28large%29.gif');
+    raycaster.loadTexture('foo2','images/penguin.png');
     // raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
     raycaster.loadTexture('player','images/player.png');
-    raycaster.loadTexture('wall','https://res.cloudinary.com/rebelwalls/image/upload/b_black,c_fill,fl_progressive,h_533,q_auto,w_800/v1479371023/article/R10961_image1');
+    raycaster.loadTexture('wall','images/wall.jpg');
 
     Player.KEYS = [
       {
@@ -287,12 +287,12 @@ let mainState = function(raycaster) {
     ));
 
     player1 = new Player(raycaster,game1,50,50);
-    player2 = new Player(raycaster,game2,50,50);
-    raycaster.addGameObjects([player1, player2]);
+    // player2 = new Player(raycaster,game2,50,1);
+    raycaster.addGameObjects([player1]);
 
-    raycaster.debugObjects.push(...[player1, player2]);
+    raycaster.debugObjects.push(...[player1]);
 
-    players.push(...[player1, player2]);
+    players.push(...[player1]);
 
   }
   function update() {
@@ -303,8 +303,11 @@ let mainState = function(raycaster) {
       player.render();
     });
   }
+  // Any public mutable variables within the state must be exposed via getter/setter methods due to closure.
+  // Players is an array, and as it is never reassigned, does not require these.
   return {
-    players: () => players,
+    get map() { return map },
+    players: players,
     preload: preload,
     create: create,
     update: update,
@@ -334,12 +337,12 @@ let loadState = {
   }
 }
 let raycaster = new Raycaster.Engine(
-  750,
+  1000,
   600,
   '',
   mainState,
   undefined,
-  1000,
+  4000,
   false,
   {
     variableHeight:false,
@@ -351,9 +354,9 @@ let raycaster = new Raycaster.Engine(
 );
 raycaster.renderFPS = true;
 
-raycaster.init();
+let state = raycaster.init();
 
-
+// TODO (important): change to step based - would be far more optimized for everything
 // TODO: look into image compression via an OffscreenCanvas
 // TODO: add minimap viewWidth and viewHeight functionality
 // TODO (bug): elapsed should probably on a per instance basis.
@@ -365,5 +368,4 @@ raycaster.init();
 // TODO: add shading (how?)
 // TODO: implement split screen
 //    also add more game instance mangement functions. currently there is no supported method for resizing game instances for example
-// TODO: change to step based - would be far more optimized for variable height and others
 // TODO: fix debug by adding camera

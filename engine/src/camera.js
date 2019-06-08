@@ -1,14 +1,15 @@
 import Color from './color';
 import { intersect, scale } from './util';
+import { Point, Line, Rect } from './geom';
 /**
  * Ray class used for performing logic
  *
  */
-class Ray extends Phaser.Line {
+class Ray extends Line {
   constructor(x, y, angle, length) {
     super();
     this.fromAngle(x, y, angle, length);
-    this.origin = new Phaser.Point(this.start.x, this.start.y);
+    this.origin = new Point(this.start.x, this.start.y);
     this.collisions = [];
   }
 }
@@ -50,6 +51,7 @@ export default class Camera {
         if (colObj === obj || !colObj.visible) return;
         const intersection = intersect(ray.start.x, ray.start.y, ray.end.x, ray.end.y, colObj.start.x, colObj.start.y, colObj.end.x, colObj.end.y);
         if (intersection) ray.collisions.push({ p: intersection, obj: colObj });
+        // console.log(ray.start.x, ray.start.y, ray.end.x, ray.end.y, colObj.start.x, colObj.start.y, colObj.end.x, colObj.end.y);
       });
     });
   }
@@ -62,12 +64,12 @@ export default class Camera {
     for (let x = 0; x < this.object.raycaster.totalRays; x++) {
       let angle = Math.atan((x - (this.object.raycaster.totalRays / 2)) / distToProjSurface);
       angle += (this.object.angle.toDeg()+90).toRad();
-      const ray = new Ray(this.object.midPoint().x + this.xOffset, this.object.midPoint().y + this.zOffset, angle, this.object.raycaster.renderDistance);
+      const ray = new Ray(this.object.midpoint.x + this.xOffset, this.object.midpoint.y + this.zOffset, angle, this.object.raycaster.renderDistance);
       this._rays.push(ray);
     }
   }
 
-  render() {    
+  render() {
     const ctx = this.game.canvas.getContext('2d');
 
     this.renderGround(ctx, this.groundColor);
@@ -140,7 +142,9 @@ export default class Camera {
         const dy = collision.y - ray.origin.y;
         // const distance = Math.sqrt((dx * dx) + (dy * dy));
         const distance = col.distance;
-        const projHeight = distance * Math.cos((Math.atan2(dy, dx) - (this.object.angle.toDeg()-90).toRad()));
+        // const ang = (Math.atan2(dy, dx) - (this.object.angle.toDeg()-90).toRad());
+        const ang = (ray.angle - (this.object.angle-(Math.PI/2)));
+        const projHeight = distance * Math.cos(ang);
         const actualHeight = this.object.raycaster.variableHeight ? collisionObject.varHeight : 1;
 
 
@@ -157,7 +161,7 @@ export default class Camera {
       // Change this.object.varHeight to higher or lower to move on the z-axis.
         // Once at a value > 1, variable height must be enabled for it to render properly.
         const y = (this.object.raycaster.instanceHeight * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
-        const column = new Phaser.Rectangle(
+        const column = new Rect(
           x, // x
           y, // y
           width, // width
@@ -168,6 +172,10 @@ export default class Camera {
           const textureData = texture;
 
           const image = textureData.getCurrentFrame();
+          let angle = col.obj.angle.toDeg();
+          // if (angle < 0) {
+            // angle = (360) + angle;
+          // }
           if (image === undefined) {
             drawColumn(column, color);
           } else {
