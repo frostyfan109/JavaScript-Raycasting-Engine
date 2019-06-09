@@ -46,14 +46,16 @@ export default class Camera {
 
   calculateRayCollision() {
     let obj = this.object;
-    this._rays.forEach((ray) => {
-      this.object.raycaster.objects.forEach((colObj) => {
-        if (colObj === obj || !colObj.visible) return;
+    let objects = obj.raycaster.objects.filter(object => object !== obj && object.visible);
+    for (let i=0;i<this._rays.length;i++) {
+      let ray = this._rays[i];
+      for (let n=0;n<objects.length;n++) {
+        let colObj = objects[n];
         const intersection = intersect(ray.start.x, ray.start.y, ray.end.x, ray.end.y, colObj.start.x, colObj.start.y, colObj.end.x, colObj.end.y);
         if (intersection) ray.collisions.push({ p: intersection, obj: colObj });
         // console.log(ray.start.x, ray.start.y, ray.end.x, ray.end.y, colObj.start.x, colObj.start.y, colObj.end.x, colObj.end.y);
-      });
-    });
+      }
+    }
   }
 
   castRays() {
@@ -71,9 +73,9 @@ export default class Camera {
 
   render() {
     const ctx = this.game.canvas.getContext('2d');
-
-    this.renderGround(ctx, this.groundColor);
+    ctx.fillRect(0, 0, this.object.raycaster.instanceWidth, this.object.raycaster.instanceHeight);
     this.renderSky(ctx, this.skyColor);
+    this.renderGround(ctx, this.groundColor);
     this.renderView(ctx);
   }
 
@@ -83,7 +85,12 @@ export default class Camera {
 
     ctx.beginPath();
     ctx.fillStyle = color.toCSSString();
-    ctx.fillRect(0, 0, this.object.raycaster.instanceWidth, this.object.raycaster.instanceHeight / 2);
+    ctx.fillRect(
+      0,
+      0,
+      this.object.raycaster.instanceWidth,
+      this.object.raycaster.instanceHeight * (this.object.verticalAngle/(Math.PI*2))
+    );
   }
 
   renderGround(ctx, color) {
@@ -92,7 +99,12 @@ export default class Camera {
 
     ctx.beginPath();
     ctx.fillStyle = color.toCSSString();
-    ctx.fillRect(0, this.object.raycaster.instanceHeight / 2, this.object.raycaster.instanceWidth, this.object.raycaster.instanceHeight / 2);
+    ctx.fillRect(
+      0,
+      this.object.raycaster.instanceHeight * (this.object.verticalAngle / (Math.PI*2)),
+      this.object.raycaster.instanceWidth,
+      this.object.raycaster.instanceHeight - (this.object.raycaster.instanceHeight * (this.object.verticalAngle / (Math.PI*2)))
+    );
   }
 
   renderView(ctx) {

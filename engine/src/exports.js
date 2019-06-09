@@ -5,6 +5,7 @@ import { Texture } from './texture';
 import Camera from './camera';
 import { Key } from './keyboard';
 import { Point, Line, Rect } from './geom';
+import Mouse from './mouse';
 import {
   PlanarObject, Wall, wallBlock,
 } from './objects';
@@ -24,5 +25,6 @@ export {
   Point,
   Line,
   Rect,
+  Mouse,
   Error
 };

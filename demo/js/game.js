@@ -57,6 +57,10 @@ class Player extends Raycaster.PlanarObject {
     this.camera.render();
     this.minimap.render();
   }
+  setupMouse() {
+    super.setupMouse(this.game);
+    this.mouse.setMoveCallback(this.mouseMove,this);
+  }
   /**
    * Applies a negative force to the player's y-velocity
    *
@@ -101,8 +105,8 @@ class Player extends Raycaster.PlanarObject {
    *
    */
   turnVertically(vert, elapsed) {
-    // let angle = vert * this.camera.turnSpeed * KEYBOARD_TURN_VERT_MULT * (elapsed/1000);
-    // super.turnVertically(angle);
+    let angle = vert * this.camera.turnSpeed * KEYBOARD_TURN_VERT_MULT * (elapsed/1000);
+    super.turnVertically(angle);
     // NOTE: works properly but does not look correct due to the skybox and ground not being true.
   }
   handleInput(elapsed) {
@@ -131,10 +135,10 @@ class Player extends Raycaster.PlanarObject {
       this.turnHorizontally(1, elapsed);
     }
     if (this.keys.up.isDown) {
-      this.turnVertically(1, elapsed);
+      // this.turnVertically(1, elapsed);
     }
     if (this.keys.down.isDown) {
-      this.turnVertically(-1, elapsed);
+      // this.turnVertically(-1, elapsed);
     }
     if (this.keys.space.isDown) {
       this.jump(elapsed);
@@ -156,14 +160,15 @@ class Player extends Raycaster.PlanarObject {
     this.handleInput(elapsed);
   }
 
-  mouseMove() {
-    let moveX = this.game.input.mouse.event.movementX;
-    let moveY = this.game.input.mouse.event.movementY;
-    this.turn(moveX,MOUSE_TURN_MULT);
+  mouseMove(e) {
+    let moveX = e.movementX;
+    let moveY = e.movementY;
+    this.turnHorizontally(moveX, MOUSE_TURN_MULT);
+    this.turnVertically(-moveY, MOUSE_TURN_MULT);
   }
 }
 
-const MOUSE_TURN_MULT = 1 / 4;
+const MOUSE_TURN_MULT = 2 / 3;
 const KEYBOARD_TURN_HORIZ_MULT = 1.25;
 const KEYBOARD_TURN_VERT_MULT = 3;
 const SHIFT_MULT = 1;
@@ -196,6 +201,7 @@ let mainState = function(raycaster) {
     // let texture = raycaster.loadTexture('foo','images/test.mp4',{ videoProps: {muted: true, loop: true }});
     raycaster.loadTexture('foo2','images/penguin.png');
     // raycaster.loadTexture('foo2','https://media.giphy.com/media/srAVfKgmxMLqE/giphy.gif');
+    raycaster.loadTexture('cementBlock', 'images/block.png');
     raycaster.loadTexture('player','images/player.png');
     raycaster.loadTexture('wall','images/wall.jpg');
 
@@ -276,17 +282,22 @@ let mainState = function(raycaster) {
       6,
       6
     );
+    raycaster.boundWalls.forEach((wall) => {
+      wall.texture = 'wall';
+    });
     raycaster.addGameObjects(map);
-    raycaster.addGameObject(new RotatingWall(
+    raycaster.addGameObject(new Raycaster.Wall(
       raycaster,
       300,
       0,
       200,
       175,
-      {color:new Raycaster.Color(0,255,255,1)}
+      {color:Raycaster.Color.fromCSSString("blue"), texture: 'cementBlock'}
     ));
 
     player1 = new Player(raycaster,game1,50,50);
+    player1.setupMouse();
+    player1.mouse.start();
     // player2 = new Player(raycaster,game2,50,1);
     raycaster.addGameObjects([player1]);
 
@@ -342,7 +353,7 @@ let raycaster = new Raycaster.Engine(
   '',
   mainState,
   undefined,
-  4000,
+  1000,
   false,
   {
     variableHeight:false,
@@ -368,4 +379,4 @@ let state = raycaster.init();
 // TODO: add shading (how?)
 // TODO: implement split screen
 //    also add more game instance mangement functions. currently there is no supported method for resizing game instances for example
-// TODO: fix debug by adding camera
+// TODO: could add bounding walls the size of the map builder and make map builder do the bounding walls instead of the engine

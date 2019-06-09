@@ -16,3 +16,9 @@ export class CacheError extends Error {
     this.name = this.constructor.name;
   }
 }
+export class MouseError extends Error {
+  constructor(...args) {
+    super(...args);
+    this.name = this.constructor.name;
+  }
+}

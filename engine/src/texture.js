@@ -94,10 +94,18 @@ export class Texture {
     this.prevTime = null;
   }
 
+  /**
+   * Sets the texture state to loaded
+   *
+   */
+  load() {
+    this.loaded = this.textureData.loaded;
+    this.frames = this.textureData.frames.slice();
+  }
+
   update() {
     if (this.loaded !== this.textureData.loaded) {
-      this.loaded = this.textureData.loaded;
-      this.frames = this.textureData.frames.slice();
+      this.load();
     }
 
     const currentFrame = this.getCurrentFrame();

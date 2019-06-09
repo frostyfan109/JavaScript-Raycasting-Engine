@@ -77,6 +77,8 @@ export default class Raycaster {
       }
     }
 
+    this.boundWalls = null; // On Raycaster::init, this is set to the boundary walls if the game has set width and height.
+
     window.addEventListener('resize', (e) => {
       if (this.automaticallyResize) {
         this.gameInstances.forEach(game => {
@@ -92,7 +94,7 @@ export default class Raycaster {
 
     if (this.worldWidth !== null && this.worldHeight !== null) {
       this.addGameObjects(
-        this.create.wallBlock(0,0,this.worldWidth,this.worldHeight, Wall,{color:new Color(255,255,255,1)})
+        this.boundWalls = this.create.wallBlock(0,0,this.worldWidth,this.worldHeight, Wall,{color:new Color(255,255,255,0)})
       );
     }
 

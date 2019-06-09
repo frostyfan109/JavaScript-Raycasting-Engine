@@ -1,8 +1,5 @@
 import Color from './color';
-
-export function requestPointerLock(game) {
-  game.input.mouse.requestPointerLock();
-}
+import { MouseError } from './errors';
 
 export function scale(num, inMin, inMax, outMin, outMax) {
   return (num - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
@@ -150,6 +147,7 @@ export class Minimap {
     }
     ctx.fillStyle = this.backgroundColor.toCSSString();
     ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.beginPath();
     this.object.raycaster.objects.forEach((obj,i) => {
       let color = obj.color.toCSSString();
       let startX = this.x + this.width * (obj.start.x / gameWidth);
@@ -160,6 +158,7 @@ export class Minimap {
       ctx.moveTo(startX,startY);
       ctx.lineTo(endX,endY);
     });
+    ctx.closePath();
     ctx.stroke();
   }
 }

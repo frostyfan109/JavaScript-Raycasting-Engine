@@ -1,8 +1,10 @@
 import Camera from './camera';
 import { BoundsError } from './errors';
 import Color from './color';
-import { intersect, requestPointerLock } from './util';
+import { Texture } from './texture';
+import { intersect } from './util';
 import { Line, Rect } from './geom';
+import Mouse from './mouse';
 
 export class PlanarObject extends Line {
   /*
@@ -29,6 +31,8 @@ export class PlanarObject extends Line {
 
     this.camera = null;
 
+    this._texture = null;
+
     this.options = {
       collision: true,
       varHeight: 1,
@@ -46,18 +50,6 @@ export class PlanarObject extends Line {
       this[key] = this.options[key];
     });
     delete this.options;
-
-    // if (typeof this.options.color === "string") this.options.color = new Color(this.options.color); //TODO
-    if (this.texture instanceof String || typeof this.texture === 'string') {
-      try {
-        this.texture = raycaster.create.texture(raycaster.getTextureData(this.texture));
-      }
-      catch (e) {
-        // Error is thrown if the texture does not exist in the cache. However, this should not halt the program.
-        console.warn(e);
-        this.texture = null;
-      }
-    }
 
     // Experimental
     this.verticalAngle = Math.PI;
@@ -87,6 +79,8 @@ export class PlanarObject extends Line {
     // Y-Axis position in the 3d plane.
     this.yPos3D = 0;
 
+    this.mouse = null;
+
     const error = new BoundsError(`PlanarObject ${this.toString()} instantiated outside of world bounds`);
     if (
       (raycaster.worldWidth !== null && Math.min(this.start.x, this.end.x) < 0)
@@ -95,6 +89,29 @@ export class PlanarObject extends Line {
       || (raycaster.worldHeight !== null && Math.max(this.start.y, this.end.y) > raycaster.worldHeight)
     ) {
       throw error;
+    }
+  }
+
+  get texture() {
+    return this._texture;
+  }
+
+  set texture(value) {
+    if (value instanceof Texture) {
+      this._texture = value;
+    } else if (value instanceof String || typeof value === "string") {
+      try {
+        this._texture = this.raycaster.create.texture(this.raycaster.getTextureData(value));
+      }
+      catch (e) {
+        // Error is thrown if the texture does not exist in the cache. However, this should not halt the program.
+        console.warn(e);
+        this._texture = null;
+      }
+    } else if (value === null || value === undefined) {
+      this._texture = null;
+    } else {
+      throw new Error(`Unknown texture value "${value}"`);
     }
   }
 
@@ -107,33 +124,12 @@ export class PlanarObject extends Line {
   }
 
   /**
-   * Sets up the mouse. Must be called before mouse will work.
+   * Creates the mouse object for the PlanarObject.
+   *
+   * @param {Object} game - Game instance to bind the mouse events to.
    */
   setupMouse(game) {
-    game.canvas.addEventListener('mousedown', () => { requestPointerLock(game); }, this);
-    game.input.addMoveCallback((pointer, x, y, click) => { this.mouseMove(game, pointer, x, y, click); }, this);
-  }
-
-  /**
-   * When called the mouse will begin to fire callbacks on mouse move
-   *
-   */
-  enableMouse(game) {
-    game.input.mouse.start();
-  }
-
-  /**
-   * When called the mouse will cease to fire callbacks on mouse move
-   *
-   */
-  disableMouse(game) {
-    game.input.mouse.stop();
-  }
-
-  // eslint-disable-next-line
-  mouseMove(pointer, x, y, click) {
-    // Should be overloaded to add functionality to mouse
-    // Should only be used in non split screen games
+    this.mouse = new Mouse(game);
   }
 
   /**
