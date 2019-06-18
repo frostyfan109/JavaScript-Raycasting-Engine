@@ -82,7 +82,6 @@ export default class Color {
     // Full hex string
     m = string.match(/^#([0-9a-f]{6})$/i);
     if (m) {
-      console.log(m);
       m = m[1];
       return new Color(
           parseInt(m.substr(0,2),16),

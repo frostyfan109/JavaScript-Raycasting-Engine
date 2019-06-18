@@ -32,6 +32,9 @@ export class Line {
   constructor(x1, y1, x2, y2) {
     this.start = new Point(x1, y1);
     this.end = new Point(x2, y2);
+    this._updateLength();
+    this._updateAngle();
+    this._updateMidpoint();
   }
   /**
    * Sets the line to a new line created from length and an angle
@@ -52,6 +55,9 @@ export class Line {
     );
     this.start = start;
     this.end = end;
+    this._updateLength();
+    this._updateAngle();
+    this._updateMidpoint();
   }
   /**
    * Sets the new coordinates of the Line
@@ -71,6 +77,9 @@ export class Line {
       x2,
       y2
     );
+    this._updateLength();
+    this._updateAngle();
+    this._updateMidpoint();
   }
   /**
    * Rotates the line about its midpoint by a given amount
@@ -85,19 +94,20 @@ export class Line {
     const cy = midpoint.y;
     this.start.rotate(cx, cy, angle);
     this.end.rotate(cx, cy, angle);
-    // this.fromAngle((this.start.x+this.end.x)/2, (this.start.y+this.end.y)/2, angle, this.length);
+    this._updateAngle();
+    this._updateMidpoint();
   }
   /**
-   * Shorthand for calculating the angle of the line
+   * Calculating the angle of the line
    */
-  get angle() {
-    return Math.atan2((this.end.y-this.start.y),(this.end.x-this.start.x));
+  _updateAngle() {
+    this.angle = Math.atan2((this.end.y-this.start.y),(this.end.x-this.start.x));
   }
   /**
-   * Shorthand for applying the distance formula to the line
+   * Applying the distance formula to the line
    */
-  get length() {
-    return Math.sqrt(((this.end.x-this.start.x)**2) + ((this.end.y-this.start.y)**2));
+  _updateLength() {
+    this.length = Math.sqrt(((this.end.x-this.start.x)**2) + ((this.end.y-this.start.y)**2));
   }
   /**
    * Alias of Line::midpoint
@@ -108,8 +118,8 @@ export class Line {
   /**
    * Getter shorthand for calculating the midpoint of the Line
    */
-  get midpoint() {
-    return new Point(
+  _updateMidpoint() {
+    this.midpoint = new Point(
       (this.end.x + this.start.x) / 2,
       (this.end.y + this.start.y) / 2
     );

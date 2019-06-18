@@ -18,6 +18,7 @@ export class PlanarObject extends Line {
   @param {Boolean} [options.collision=true] - Boolean regarding whether objects of type Entity will have movement blocked by the PlanarObject
   @param {number} [options.height=1] - Initial height of object (relative to the projected height of the object)
   @param {String} [options.texture=null] - Image key referencing the cached texture (must be preloaded into the cache)
+  @param {String} [options.backTexture=null] - Same as options.texture, but only shown when facing the backside of the object
   @param {Color} [options.color=new Color(255,255,255,1)] - Color object of the object (given a texture is not present)
     // NOTE: It is not recommended to use colors of very high intensity, such as rgb(255,255,0), nor those of very low intensity, such as rgb(5,5,0)
     // NOTE: but rather shades such as rgb(230,230,0).
@@ -32,11 +33,13 @@ export class PlanarObject extends Line {
     this.camera = null;
 
     this._texture = null;
+    this._backTexture = null;
 
     this.options = {
       collision: true,
       varHeight: 1,
       texture: null,
+      backTexture: null,
       color: new Color(255, 255, 255, 1),
       visible: true,
     };
@@ -111,7 +114,30 @@ export class PlanarObject extends Line {
     } else if (value === null || value === undefined) {
       this._texture = null;
     } else {
-      throw new Error(`Unknown texture value "${value}"`);
+      throw new Error(`Unknown texture value "${value}" when setting texture property`);
+    }
+  }
+
+  get backTexture() {
+    return this._backTexture;
+  }
+
+  set backTexture(value) {
+    if (value instanceof Texture) {
+      this._backTexture = value;
+    } else if (value instanceof String || typeof value === "string") {
+      try {
+        this._backTexture = this.raycaster.create.texture(this.raycaster.getTextureData(value));
+      }
+      catch (e) {
+        // Error is thrown if the texture does not exist in the cache. However, this should not halt the program.
+        console.warn(e);
+        this._backTexture = null;
+      }
+    } else if (value === null || value === undefined) {
+      this._backTexture = null;
+    } else {
+      throw new Error(`Unknown texture value "${value}" when setting backTexture property`);
     }
   }
 
@@ -399,17 +425,62 @@ export class Wall extends PlanarObject {
 /**
  * Helper function that constructs a square of walls
  *
- * @returns Wall[] - Constructed walls in the order "top, right, bottom, left"
+ * @param {Boolean} surrounding - If true, walls will be constructed such that the primary texture is facing inward rather than outward.
+ *
+ * @returns {Wall[]} - Constructed walls in the order "top, right, bottom, left"
  */
-export function wallBlock(raycaster, x, y, x2, y2, WallType, options = {}) {
-  return [
-    // top
-    new WallType(raycaster, x2, y, x, y, options),
-    // left
-    new WallType(raycaster, x, y, x, y2, options),
-    // bottom
-    new WallType(raycaster, x, y2, x2, y2, options),
-    // right
-    new WallType(raycaster, x2, y, x2, y2, options)
-  ];
+export function wallBlock(raycaster, x, y, x2, y2, WallType, options = {}, surrounding = false) {
+  if (surrounding) {
+    return [
+      // top
+      new WallType(raycaster, x, y, x2, y, options),
+      // left
+      new WallType(raycaster, x, y2, x, y, options),
+      // bottom
+      new WallType(raycaster, x2, y2, x, y2, options),
+      // right
+      new WallType(raycaster, x2, y, x2, y2, options)
+    ];
+  } else {
+    return [
+      // top
+      new WallType(raycaster, x2, y, x, y, options),
+      // left
+      new WallType(raycaster, x, y, x, y2, options),
+      // bottom
+      new WallType(raycaster, x, y2, x2, y2, options),
+      // right
+      new WallType(raycaster, x2, y2, x2, y, options)
+    ];
+  }
 }
+
+/**
+ * Internal utility for facilitating the semantic creation of native objects. May also be easily extended if desired via the Raycaster::create instance.
+ * In no way is one required to use it, as it is purely a utility.
+ *
+ */
+export function ObjectFactory(raycaster) {
+  return {
+    planarObject(...args) {
+      return new PlanarObject(raycaster, ...args);
+    },
+
+    wall(...args) {
+      return new Wall(raycaster, ...args);
+    },
+
+    wallBlock(...args) {
+      return wallBlock(raycaster, ...args);
+    },
+
+    entity(...args) {
+      return new Wall(raycaster, ...args);
+    },
+
+    texture(...args) {
+      return new Texture(...args);
+    },
+
+  };
+};

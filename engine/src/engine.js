@@ -1,5 +1,5 @@
 import { Texture, TextureData } from './texture';
-import { PlanarObject, Wall, Entity, wallBlock } from './objects';
+import { ObjectFactory, PlanarObject, Wall, Entity, wallBlock } from './objects';
 import { CacheError } from './errors';
 import Keyboard from './keyboard';
 import Color from './color';
@@ -51,7 +51,7 @@ export default class Raycaster {
     this.totalRays = typeof totalRays === 'undefined' || totalRays === null || totalRays === undefined ? canvasWidth : totalRays;
 
 
-    this.create = new Raycaster.ObjectFactory(this);
+    this.create = ObjectFactory(this);
 
     this.renderFPS = debug;
     this.debugObjects = [];
@@ -82,7 +82,12 @@ export default class Raycaster {
     window.addEventListener('resize', (e) => {
       if (this.automaticallyResize) {
         this.gameInstances.forEach(game => {
-          game.scale.setGameSize(this.aspectRatio.x * document.body.clientWidth, this.aspectRatio.y * document.body.clientHeight);
+          const width = this.aspectRatio.x * document.body.clientWidth;
+          const height = this.aspectRatio.y * document.body.clientHeight;
+          game.canvas.width = width;
+          game.canvas.height = height;
+          this.instanceWidth = width;
+          this.instanceHeight = height;
         });
       }
     });
@@ -94,7 +99,7 @@ export default class Raycaster {
 
     if (this.worldWidth !== null && this.worldHeight !== null) {
       this.addGameObjects(
-        this.boundWalls = this.create.wallBlock(0,0,this.worldWidth,this.worldHeight, Wall,{color:new Color(255,255,255,0)})
+        this.boundWalls = this.create.wallBlock(this.worldWidth,this.worldHeight,0,0,Wall,{color:new Color(255,255,255,0)}, true)
       );
     }
 
@@ -310,31 +315,6 @@ export default class Raycaster {
 
   }
 }
-
-Raycaster.ObjectFactory = function ObjectFactory(raycaster) {
-  return {
-    planarObject(...args) {
-      return new PlanarObject(raycaster, ...args);
-    },
-
-    wall(...args) {
-      return new Wall(raycaster, ...args);
-    },
-
-    wallBlock(...args) {
-      return wallBlock(raycaster, ...args);
-    },
-
-    entity(...args) {
-      return new Wall(raycaster, ...args);
-    },
-
-    texture(...args) {
-      return new Texture(...args);
-    },
-
-  };
-};
 
 // eslint-disable-next-line no-extend-native
 Number.prototype.toRad = function toRad() {

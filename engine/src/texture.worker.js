@@ -3,7 +3,7 @@ import { window } from './external/gifuct-js.min.js';
 
 const GIF = window.GIF;
 
-async function GIFFrame(frame) {
+async function GIFFrame(frame, options) {
   let imageData = new ImageData(frame.patch, frame.dims.width, frame.dims.height);
   let imageBitmap = await createImageBitmap(imageData, 0, 0, frame.dims.width, frame.dims.height);
   return {
@@ -45,7 +45,7 @@ self.addEventListener('message', function(e) {
       frames.forEach((frame) => {
         // delete frame.pixels;
       });
-      let promisedFrames = frames.map((f) => GIFFrame(f));
+      let promisedFrames = frames.map((f) => GIFFrame(f, options));
       Promise.all(promisedFrames).then((loadedFrames) => {
         // console.log('finished',data);
         self.postMessage({

@@ -87,10 +87,11 @@ export const MapBuilder = {
     }
     return map;
   },
-  loadFromFile(file) {
-    // TODO
-
-  },
+  async buildFromFile(raycaster, url, objectData, xDimensions, yDimensions) {
+    let resp = await fetch(url);
+    let json = await resp.json();
+    return this.build(raycaster, [json, objectData], xDimensions, yDimensions);
+  }
 };
 
 /**
@@ -107,6 +108,9 @@ export const MapBuilder = {
  * @param {Color} [options.backgroundColor=new Color(80,80,80,1)] - Background color of the Minimap.
  * @param {Color} [options.borderColor=new Color(50,50,50,1)] - Border color of the Minimap.
  * @param {number} [options.borderWidth=0] - Width of the Minimap's border.
+ * @param {number} [options.relative] - If true, x, y, width, and height will be relative to the instance width and height rather than absolute.
+ *    Additionally, it may be a function.
+ *    Advised for use if the game is resizable.
  *
  */
 export class Minimap {
@@ -122,7 +126,8 @@ export class Minimap {
     this.options = {
       backgroundColor:new Color(80,80,80,1),
       borderColor:new Color(50,50,50,1),
-      borderWidth:0
+      borderWidth:0,
+      relative: false
     };
     Object.keys(options).forEach((key) => {
       if (Object.prototype.hasOwnProperty.call(this.options, key)) {
@@ -141,19 +146,35 @@ export class Minimap {
     let ctx = this.object.game.canvas.getContext('2d');
     let gameWidth = this.object.raycaster.worldWidth;
     let gameHeight = this.object.raycaster.worldHeight;
+    let thisX = this.relative ? this.x * this.object.raycaster.instanceWidth : this.x;
+    if (typeof this.x === "function") {
+      thisX = this.x();
+    }
+    let thisY = this.relative ? this.y * this.object.raycaster.instanceHeight : this.y;
+    if (typeof this.y === "function") {
+      thisY = this.y();
+    }
+    let thisWidth = this.relative ? this.width * this.object.raycaster.instanceWidth : this.height;
+    if (typeof this.width === "function") {
+      thisWidth = this.width();
+    }
+    let thisHeight = this.relative ? this.height * this.object.raycaster.instanceHeight : this.width;
+    if (typeof this.height === "function") {
+      thisHeight = this.height();
+    }
     if (this.borderWidth !== 0) {
       ctx.fillStyle = this.borderColor.toCSSString();
-      ctx.fillRect(this.x-this.borderWidth,this.y-this.borderWidth,this.width+(this.borderWidth*2),this.height+(this.borderWidth*2));
+      ctx.fillRect(thisX-this.borderWidth,thisY-this.borderWidth,thisWidth+(this.borderWidth*2),thisHeight+(this.borderWidth*2));
     }
     ctx.fillStyle = this.backgroundColor.toCSSString();
-    ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.fillRect(thisX, thisY, thisWidth, thisHeight);
     ctx.beginPath();
     this.object.raycaster.objects.forEach((obj,i) => {
       let color = obj.color.toCSSString();
-      let startX = this.x + this.width * (obj.start.x / gameWidth);
-      let startY = this.y + this.height * (obj.start.y / gameHeight);
-      let endX = this.x + this.width * (obj.end.x / gameWidth);
-      let endY = this.y + this.height * (obj.end.y / gameHeight);
+      let startX = thisX + thisWidth * (obj.start.x / gameWidth);
+      let startY = thisY + thisHeight * (obj.start.y / gameHeight);
+      let endX = thisX + thisWidth * (obj.end.x / gameWidth);
+      let endY = thisY + thisHeight * (obj.end.y / gameHeight);
       ctx.strokeStyle = color;
       ctx.moveTo(startX,startY);
       ctx.lineTo(endX,endY);

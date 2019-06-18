@@ -1,6 +1,7 @@
 import Color from './color';
 import { intersect, scale } from './util';
 import { Point, Line, Rect } from './geom';
+import * as timsort from './external/timsort.min';
 /**
  * Ray class used for performing logic
  *
@@ -116,14 +117,16 @@ export default class Camera {
       ctx.fillStyle = color.toCSSString();
       ctx.fillRect(column.x, column.y, column.width, column.height);
     };
-    this._rays.forEach((ray, i) => {
+    let prevPixelColumn = null;
+    for (let i=0;i<this._rays.length;i++) {
+      let ray = this._rays[i];
       // eslint-disable-next-line max-len
       const collisions = ray.collisions;
       collisions.forEach((collision) => {
         const distance = Math.sqrt(((collision.p.x - ray.origin.x) ** 2) + ((collision.p.y - ray.origin.y) ** 2));
         collision.distance = distance;
       });
-      collisions.sort((c1, c2) => c2.distance - c1.distance);
+      timsort.sort(collisions, (c1, c2) => c2.distance - c1.distance);
       if (!this.object.raycaster.variableHeight) {
         for (let m = 0; m < collisions.length; m++) {
           const col = collisions[m];
@@ -144,8 +147,7 @@ export default class Camera {
         const collision = col.p;
         const collisionObject = col.obj;
 
-        const texture = col.obj.texture;
-
+        let texture = col.obj.texture;
 
         const rayLen = this._rays.length;
         const width = Math.ceil(this.object.raycaster.instanceWidth / rayLen);
@@ -169,7 +171,6 @@ export default class Camera {
         // const projectedHeight = this.object.raycaster.instanceHeight/(projHeight/this.fov);
         const height = 2 * actualHeight * (projectedHeight / 2);
         // Change (this.object.raycaster.instanceHeight * 2) to (this.object.raycaster.instanceHeight * verticalAngleInDegrees/360) to look up and down. Maxes at height * 360 and height * 0;
-        //    NOTE: Skybox/ground won't work with this method and I don't know a fix. Probably some fairly basic math.
       // Change this.object.varHeight to higher or lower to move on the z-axis.
         // Once at a value > 1, variable height must be enabled for it to render properly.
         const y = (this.object.raycaster.instanceHeight * (this.object.verticalAngle/(Math.PI*2))) - ((projectedHeight) * (this.object.yPos3D + this.yOffset));
@@ -181,22 +182,32 @@ export default class Camera {
         );
 
         if (texture !== null) {
-          const textureData = texture;
-
-          const image = textureData.getCurrentFrame();
-          let angle = col.obj.angle.toDeg();
-          // if (angle < 0) {
-            // angle = (360) + angle;
-          // }
+          let image = texture.getCurrentFrame();
           if (image === undefined) {
             drawColumn(column, color);
+            continue;
           } else {
-            const distanceFromStart = Math.sqrt(((collision.x - collisionObject.start.x) ** 2) + ((collision.y - collisionObject.start.y) ** 2));
-            const pixelColumn = scale(distanceFromStart, 0, collisionObject.length, 0, image.width);
-            // console.log(image.width,image.height);
+            let distanceFromStart = Math.sqrt(((collision.x - collisionObject.start.x) ** 2) + ((collision.y - collisionObject.start.y) ** 2));
+            let pixelColumn = scale(distanceFromStart, 0, collisionObject.length, 0, image.width);
+            const oldPrevPixelColumn = prevPixelColumn; 
+            prevPixelColumn = pixelColumn;
+            if (pixelColumn < oldPrevPixelColumn) {
+              if (this.object.backTexture !== null) {
+                texture = this.object.backTexture;
+                image = texture.getCurrentFrame();
+                if (image === undefined) {
+                  drawColumn(column, color);
+                  continue;
+                }
+                pixelColumn = scale(distanceFromStart, 0, collisionObject.length, 0, image.width);
+              }
+              else {
+                drawColumn(column, color);
+                prevPixelColumn = pixelColumn;
+                continue;
+              }
+            }
             const imageHeight = image.height;
-
-            const t1 = Date.now();
 
             ctx.drawImage(
               image, // image
@@ -209,12 +220,12 @@ export default class Camera {
               column.width, // imageScaleWidth
               column.height, // imageScaleHeight
             );
-            drawTimes.push(Date.now() - t1);
           }
         } else {
           drawColumn(column, color);
+          prevPixelColumn = null;
         }
       }
-    });
+    }
   }
 }
