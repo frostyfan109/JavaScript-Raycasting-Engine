@@ -42,6 +42,9 @@ export class PlanarObject extends Line {
       backTexture: null,
       color: new Color(255, 255, 255, 1),
       visible: true,
+      filled: false,
+      associated: null,
+      worldBound: false
     };
 
     Object.keys(options).forEach((key) => {
@@ -91,7 +94,7 @@ export class PlanarObject extends Line {
       || (raycaster.worldHeight !== null && Math.min(this.start.y, this.end.y) < 0)
       || (raycaster.worldHeight !== null && Math.max(this.start.y, this.end.y) > raycaster.worldHeight)
     ) {
-      throw error;
+      // throw error;
     }
   }
 

@@ -7,7 +7,8 @@ module.exports = {
     path: path.resolve(__dirname, './dist'),
     filename: 'engine.js',
     globalObject: 'this',
-    library: 'Raycaster'
+    library: 'Raycaster',
+    libraryTarget: 'umd'
   },
   module: {
     rules: [

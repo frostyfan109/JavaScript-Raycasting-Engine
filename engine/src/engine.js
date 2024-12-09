@@ -99,7 +99,7 @@ export default class Raycaster {
 
     if (this.worldWidth !== null && this.worldHeight !== null) {
       this.addGameObjects(
-        this.boundWalls = this.create.wallBlock(this.worldWidth,this.worldHeight,0,0,Wall,{color:new Color(255,255,255,0)}, true)
+        this.boundWalls = this.create.wallBlock(this.worldWidth,this.worldHeight,0,0,Wall,{color:new Color(255,255,255,0),worldBound:true}, true)
       );
     }
 
@@ -110,7 +110,7 @@ export default class Raycaster {
       this.gameInstances.forEach((game) => {
         let parentElement = this.instanceParent === '' ? null : document.getElementById(this.instanceParent);
           if (parentElement === null) parentElement = document.body;
-          parentElement.appendChild(game.canvas);
+          // parentElement.appendChild(game.canvas);
           game.state = new game.State(game);
           game.state.preload();
       });
@@ -119,6 +119,7 @@ export default class Raycaster {
           game.state.create();
       });
       const update = () => {
+          if (this.terminated) return
           const delta = this._update();
           mainState.update(delta);
           this.gameInstances.forEach((game) => {
@@ -144,13 +145,14 @@ export default class Raycaster {
       let parentElement = this.instanceParent === '' ? null : document.getElementById(this.instanceParent);
       // If parent is empty or element doesn't exist append to body
       if (parentElement === null) parentElement = document.body;
-      parentElement.appendChild(game.canvas);
+      // parentElement.appendChild(game.canvas);
 
       let state = new game.State(game);
       state.preload();
       state.create();
 
       const update = () => {
+        if (this.terminated) return
         const delta = this._update();
         game.time.totalElapsed += delta;
         game.time.prevDelta = game.time.delta;
@@ -211,6 +213,10 @@ export default class Raycaster {
     let canvas = document.createElement('canvas');
     canvas.width = this.instanceWidth;
     canvas.height = this.instanceHeight;
+    return this.createGameFromCanvas(state, canvas)
+  }
+
+  createGameFromCanvas(state, canvas) {
     let game = this._createGameObject(state, canvas);
     this.gameInstances.push(game);
     return game;
@@ -305,7 +311,7 @@ export default class Raycaster {
           ctx.font = "14px Arial";
           ctx.fillStyle = "#000000";
           this.debugObjects.forEach((obj, i) => {
-            const objRepr = `${obj.constructor.name}(x: ${Math.round(obj.x)}, z: ${Math.round(obj.y)}, y: ${Math.round(obj.yPos3D)})`;
+            const objRepr = `${obj.constructor.name}(x: ${Math.round(obj.x)}, z: ${Math.round(obj.y)}, y: ${Math.round(obj.yPos3D)}, θ: ${(obj.angle * 180 / Math.PI).toFixed(1)})`;
             ctx.fillText(objRepr, 20, 70+(i*30));
           });
       });

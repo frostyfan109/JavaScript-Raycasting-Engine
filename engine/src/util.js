@@ -168,6 +168,7 @@ export class Minimap {
     }
     ctx.fillStyle = this.backgroundColor.toCSSString();
     ctx.fillRect(thisX, thisY, thisWidth, thisHeight);
+    
     ctx.beginPath();
     this.object.raycaster.objects.forEach((obj,i) => {
       let color = obj.color.toCSSString();
@@ -179,6 +180,18 @@ export class Minimap {
       ctx.moveTo(startX,startY);
       ctx.lineTo(endX,endY);
     });
+    ctx.closePath();
+    ctx.stroke();
+
+    ctx.beginPath();
+    let color = this.object.color.toCSSString();
+    let startX = thisX + thisWidth * (this.object.start.x / gameWidth);
+    let startY = thisY + thisHeight * (this.object.start.y / gameHeight);
+    let endX = thisX + thisWidth * (this.object.end.x / gameWidth);
+    let endY = thisY + thisHeight * (this.object.end.y / gameHeight);
+    ctx.strokeStyle = color;
+    ctx.moveTo(startX,startY);
+    ctx.lineTo(endX,endY);
     ctx.closePath();
     ctx.stroke();
   }

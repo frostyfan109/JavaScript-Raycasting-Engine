@@ -144,4 +144,11 @@ export class Rect {
     this.width = width;
     this.height = height;
   }
+  intersects(other) {
+    // Check if one rectangle is to the left, right, above, or below the other
+    return !(this.x + this.width < other.x || 
+             this.x > other.x + other.width ||
+             this.y + this.height < other.y ||
+             this.y > other.y + other.height);
+  }
 }

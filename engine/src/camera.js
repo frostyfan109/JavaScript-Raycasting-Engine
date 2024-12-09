@@ -2,6 +2,7 @@ import Color from './color';
 import { intersect, scale } from './util';
 import { Point, Line, Rect } from './geom';
 import * as timsort from './external/timsort.min';
+import * as PolyK from './external/polyk'
 /**
  * Ray class used for performing logic
  *
@@ -127,21 +128,32 @@ export default class Camera {
         collision.distance = distance;
       });
       timsort.sort(collisions, (c1, c2) => c2.distance - c1.distance);
-      if (!this.object.raycaster.variableHeight) {
-        for (let m = 0; m < collisions.length; m++) {
-          const col = collisions[m];
-          col.renderThisFrame = true;
-          if (m > 0) {
-            const prevCol = collisions[m - 1];
-            if (col.obj.color.a === 1) {
-              prevCol.renderThisFrame = false;
-            }
-          }
-        }
+      // if (!this.object.raycaster.variableHeight) {
+      //   for (let m = 0; m < collisions.length; m++) {
+      //     const col = collisions[m];
+      //     col.renderThisFrame = true;
+      //     if (m > 0) {
+      //       const prevCol = collisions[m - 1];
+      //       if (col.obj.color.a === 1) {
+      //         prevCol.renderThisFrame = false;
+      //       }
+      //     }
+      //   }
+      // }
+      let maxHeightFound = 0
+      for (let i=collisions.length-1; i>=1; i--) {
+        const col = collisions[i]
+        if (!col.obj.varHeight) continue
+        if (col.obj.varHeight >= maxHeightFound) {
+          col.renderThisFrame = true
+          if (!col.obj.worldBound && col.obj.color.a === 1) maxHeightFound = Math.max(maxHeightFound, col.obj.varHeight)
+        } else col.renderThisFrame = false
       }
+      let lastAssoc = new Map()
+      let lastCol
       for (let n = 0; n < collisions.length; n++) {
         const col = collisions[n];
-        if (!this.object.raycaster.variableHeight && col.renderThisFrame === false) {
+        if (col.renderThisFrame === false) {
           continue;
         }
         const collision = col.p;
@@ -180,7 +192,31 @@ export default class Camera {
           width, // width
           height, // height
         );
-
+        // if (!collisionObject.associated) lastAssoc.clear()
+        const lastColAssoc = lastAssoc.get(collisionObject.associated)
+        const cameraX = this.object.midpoint.x + this.xOffset
+        const cameraY = this.object.midpoint.y + this.zOffset
+        if (lastColAssoc) {
+          // const [prevx,prevy,prevw,prevh] = lastCol
+          const [prevx,prevy,prevw,prevh] = lastColAssoc
+          let startY = prevy
+          drawColumn(new Rect(
+            x,
+            startY,
+            width,
+            y-startY
+          ),color)
+        } else if (collisionObject.associated && PolyK.ContainsPoint(collisionObject.polygon, cameraX, cameraY)) {
+          drawColumn(new Rect(
+            x,
+            y,
+            width,
+            this.object.raycaster.instanceHeight - y
+          ),color)
+        }
+        if (collisionObject.associated) lastAssoc.set(collisionObject.associated, [x, y, width, height])
+        lastCol = [x,y,width,height]
+        
         if (texture !== null) {
           let image = texture.getCurrentFrame();
           if (image === undefined) {
@@ -223,9 +259,19 @@ export default class Camera {
           }
         } else {
           drawColumn(column, color);
+          col.drawRect = column
           prevPixelColumn = null;
         }
       }
     }
+    const filledPolys = new Map()
+    this._rays.flatMap((r) => r.collisions).forEach((col) => {
+      if (!col.obj.associated) return
+      
+      const existingValue = filledPolys.get(col.obj.associated)
+      if (existingValue) existingValue.push(col)
+        else filledPolys.set(col.obj.associated, [col])
+    })
+    window.f = filledPolys
   }
 }

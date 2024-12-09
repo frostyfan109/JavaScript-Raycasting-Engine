@@ -3,6 +3,7 @@ export default class Keyboard {
     this.enabled = true;
     this._keysDown = {};
     window.onkeydown = (e) => {
+      if (e.metaKey) return
       // Store relevant properties from the event
       this._keysDown[e.keyCode] = {
         location: e.location,
